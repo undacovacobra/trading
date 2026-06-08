@@ -96,14 +96,36 @@ class TradovateBrowser:
         await self._page.wait_for_timeout(3000)
         if "trading-mode" in self._page.url:
             logger.info("Handling trading-mode/terms page...")
+            # Scroll to bottom and click whatever button is there
             await self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await self._page.wait_for_timeout(1000)
-            accept_btn = self._page.locator(
-                'button:has-text("I Accept"), button:has-text("Accept"), button:has-text("Continue"), button:has-text("Agree")'
-            ).first
-            await accept_btn.wait_for(timeout=10000)
-            await accept_btn.click()
-            logger.info("Accepted terms, continuing...")
+            await self._page.wait_for_timeout(1500)
+            # Log all visible button text so we know what's on the page
+            buttons = await self._page.evaluate("""
+                Array.from(document.querySelectorAll('button, a[role="button"], input[type="button"], input[type="submit"]'))
+                    .map(b => b.innerText || b.value || b.textContent)
+                    .filter(t => t.trim())
+            """)
+            logger.info("Buttons found on page: %s", buttons)
+            # Click the first button that looks like a call-to-action
+            clicked = await self._page.evaluate("""
+                (() => {
+                    const keywords = ['accept', 'agree', 'continue', 'start', 'get started', 'enter', 'proceed', 'understood', 'ok'];
+                    const btns = Array.from(document.querySelectorAll('button, a[role="button"]'));
+                    for (const btn of btns) {
+                        const text = (btn.innerText || btn.textContent || '').toLowerCase().trim();
+                        if (keywords.some(k => text.includes(k))) {
+                            btn.scrollIntoView();
+                            btn.click();
+                            return text;
+                        }
+                    }
+                    return null;
+                })()
+            """)
+            if clicked:
+                logger.info("Clicked button: '%s'", clicked)
+            else:
+                logger.warning("No matching button found — you may need to click manually")
 
         # Wait for the trading UI to appear
         await self._page.wait_for_url("**trader.tradovate.com/**", timeout=30000)
