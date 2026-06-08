@@ -92,8 +92,21 @@ class TradovateBrowser:
         await self._page.fill('input[name="password"]', config.PASSWORD)
         await self._page.click('button[type="submit"]')
 
+        # Handle the "trading-mode" / prop terms page if it appears
+        await self._page.wait_for_timeout(3000)
+        if "trading-mode" in self._page.url:
+            logger.info("Handling trading-mode/terms page...")
+            await self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await self._page.wait_for_timeout(1000)
+            accept_btn = self._page.locator(
+                'button:has-text("I Accept"), button:has-text("Accept"), button:has-text("Continue"), button:has-text("Agree")'
+            ).first
+            await accept_btn.wait_for(timeout=10000)
+            await accept_btn.click()
+            logger.info("Accepted terms, continuing...")
+
         # Wait for the trading UI to appear
-        await self._page.wait_for_url("**/home**", timeout=30000)
+        await self._page.wait_for_url("**trader.tradovate.com/**", timeout=30000)
         self._logged_in = True
         logger.info("Login successful")
 
