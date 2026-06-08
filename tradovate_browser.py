@@ -154,8 +154,47 @@ class TradovateBrowser:
         """Open the order ticket for the given symbol via the search bar."""
         page = self._page
 
-        # Click the symbol search / add widget area
-        await page.click('[data-testid="instrument-search"], .instrument-search, [placeholder*="Search"]')
+        # Take a screenshot so we can see the current state of the page
+        await page.screenshot(path="tradovate_screen.png", full_page=False)
+        logger.info("Screenshot saved to tradovate_screen.png")
+
+        # Log all input fields visible on the page to find the right search selector
+        inputs = await page.evaluate("""
+            Array.from(document.querySelectorAll('input')).map(i => ({
+                placeholder: i.placeholder,
+                name: i.name,
+                id: i.id,
+                className: i.className.substring(0, 60)
+            }))
+        """)
+        logger.info("Inputs on page: %s", inputs)
+
+        # Try multiple search bar selectors
+        search_selectors = [
+            'input[placeholder*="Search"]',
+            'input[placeholder*="search"]',
+            'input[placeholder*="Symbol"]',
+            'input[placeholder*="symbol"]',
+            '[class*="search"] input',
+            '[class*="Search"] input',
+            'input[class*="search"]',
+            'input[class*="Search"]',
+        ]
+        clicked = False
+        for sel in search_selectors:
+            try:
+                el = page.locator(sel).first
+                if await el.is_visible():
+                    await el.click()
+                    clicked = True
+                    logger.info("Found search input with selector: %s", sel)
+                    break
+            except Exception:
+                continue
+
+        if not clicked:
+            raise RuntimeError("Could not find symbol search input — check tradovate_screen.png")
+
         await page.wait_for_timeout(500)
         await page.keyboard.type(symbol, delay=80)
         await page.wait_for_timeout(800)
