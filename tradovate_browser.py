@@ -24,7 +24,7 @@ class TradovateBrowser:
     async def start(self):
         self._playwright = await async_playwright().start()
         self._browser = await self._playwright.chromium.launch(
-            headless=False,  # visible so you can see what's happening
+            headless=False,
             args=["--no-sandbox"],
         )
         self._context = await self._browser.new_context(
@@ -55,23 +55,22 @@ class TradovateBrowser:
 
         logger.info("Placing %s %s x%d", side.upper(), symbol, quantity)
         await self._ensure_logged_in()
-        await self._open_order_ticket(symbol)
         await self._set_quantity(quantity)
         await self._click_market_order(side)
         await self._confirm_if_prompted()
         logger.info("Order submitted: %s %s x%d", side.upper(), symbol, quantity)
 
     async def close_position(self, symbol: str):
-        """Close any open position for the given symbol."""
+        """Close open position using the Exit at Mkt & Cxl button."""
         logger.info("Closing position for %s", symbol)
         await self._ensure_logged_in()
-        await self._flatten_position(symbol)
+        await self._click_exit()
 
     async def close_all_positions(self):
         """Close every open position — used for EOD rule enforcement."""
         logger.info("Closing all positions (EOD rule)")
         await self._ensure_logged_in()
-        await self._flatten_all()
+        await self._click_exit()
 
     # ------------------------------------------------------------------
     # Login
@@ -80,7 +79,6 @@ class TradovateBrowser:
     async def _login(self):
         await self._page.goto(TRADOVATE_URL, wait_until="domcontentloaded", timeout=60000)
 
-        # If already on the trading platform (not on login or intermediate pages), session is valid
         url = self._page.url
         blocked_pages = ("/welcome", "trading-mode", "/login", "auth")
         if "tradovate.com" in url and not any(p in url for p in blocked_pages):
@@ -98,17 +96,8 @@ class TradovateBrowser:
         await self._page.wait_for_timeout(3000)
         if "trading-mode" in self._page.url:
             logger.info("Handling trading-mode/terms page...")
-            # Scroll to bottom and click whatever button is there
             await self._page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await self._page.wait_for_timeout(1500)
-            # Log all visible button text so we know what's on the page
-            buttons = await self._page.evaluate("""
-                Array.from(document.querySelectorAll('button, a[role="button"], input[type="button"], input[type="submit"]'))
-                    .map(b => b.innerText || b.value || b.textContent)
-                    .filter(t => t.trim())
-            """)
-            logger.info("Buttons found on page: %s", buttons)
-            # Click the first button that looks like a call-to-action
             clicked = await self._page.evaluate("""
                 (() => {
                     const keywords = ['accept', 'agree', 'continue', 'start', 'get started', 'enter', 'proceed', 'understood', 'ok'];
@@ -127,154 +116,67 @@ class TradovateBrowser:
             if clicked:
                 logger.info("Clicked button: '%s'", clicked)
             else:
-                logger.warning("No matching button found — you may need to click manually")
+                logger.warning("No matching button found on trading-mode page")
 
-        # Wait for the trading UI to appear
         await self._page.wait_for_url("**trader.tradovate.com/**", timeout=30000)
         self._logged_in = True
         logger.info("Login successful")
-
-        # Persist the session so next restart skips login
         await self._context.storage_state(path="session.json")
 
     async def _ensure_logged_in(self):
         if not self._logged_in:
             await self._login()
-        # Quick sanity check — if we landed back on login page, re-authenticate
-        if "/welcome" in self._page.url or "login" in self._page.url.lower():
-            logger.warning("Session expired, re-logging in")
+        url = self._page.url
+        if "/welcome" in url or "login" in url.lower() or "trading-mode" in url:
+            logger.warning("Session lost, re-logging in")
             self._logged_in = False
             await self._login()
 
     # ------------------------------------------------------------------
-    # Order ticket interaction
+    # Order execution — directly clicks Buy Mkt / Sell Mkt on the DOM
     # ------------------------------------------------------------------
 
-    async def _open_order_ticket(self, symbol: str):
-        """Open the order ticket for the given symbol via the search bar."""
-        page = self._page
-
-        # Take a screenshot so we can see the current state of the page
-        await page.screenshot(path="tradovate_screen.png", full_page=False)
-        logger.info("Screenshot saved to tradovate_screen.png")
-
-        # Log all input fields visible on the page to find the right search selector
-        inputs = await page.evaluate("""
-            Array.from(document.querySelectorAll('input')).map(i => ({
-                placeholder: i.placeholder,
-                name: i.name,
-                id: i.id,
-                className: i.className.substring(0, 60)
-            }))
-        """)
-        logger.info("Inputs on page: %s", inputs)
-
-        # Try multiple search bar selectors
-        search_selectors = [
-            'input[placeholder*="Search"]',
-            'input[placeholder*="search"]',
-            'input[placeholder*="Symbol"]',
-            'input[placeholder*="symbol"]',
-            '[class*="search"] input',
-            '[class*="Search"] input',
-            'input[class*="search"]',
-            'input[class*="Search"]',
-        ]
-        clicked = False
-        for sel in search_selectors:
-            try:
-                el = page.locator(sel).first
-                if await el.is_visible():
-                    await el.click()
-                    clicked = True
-                    logger.info("Found search input with selector: %s", sel)
-                    break
-            except Exception:
-                continue
-
-        if not clicked:
-            raise RuntimeError("Could not find symbol search input — check tradovate_screen.png")
-
-        await page.wait_for_timeout(500)
-        await page.keyboard.type(symbol, delay=80)
-        await page.wait_for_timeout(800)
-
-        # Select the first matching result
-        result = page.locator('.search-result-item, [class*="searchResult"], [class*="SearchResult"]').first
-        await result.wait_for(timeout=8000)
-        await result.click()
-        await page.wait_for_timeout(500)
-
-        # Open order ticket if not already visible
-        ticket = page.locator('[class*="orderTicket"], [class*="OrderTicket"], [data-testid="order-ticket"]')
-        if not await ticket.is_visible():
-            # Try right-clicking the chart to get "New Order" option
-            chart = page.locator('[class*="chart-container"], canvas').first
-            await chart.click(button="right")
-            await page.wait_for_timeout(300)
-            await page.get_by_text("New Order", exact=False).first.click()
-
     async def _set_quantity(self, quantity: int):
+        """Set the quantity in the order size input visible on the chart header."""
         page = self._page
-        qty_input = page.locator(
-            '[class*="qty"] input, [class*="quantity"] input, [data-testid="qty-input"], input[class*="Qty"]'
-        ).first
-        await qty_input.wait_for(timeout=5000)
-        await qty_input.triple_click()
-        await qty_input.type(str(quantity))
+        # The quantity box is the number input near the Buy Mkt / Sell Mkt buttons
+        qty = page.locator('input[class*="qty"], input[class*="Qty"], input[class*="quantity"], input[class*="Quantity"], input[class*="size"], input[class*="Size"]').first
+        if not await qty.is_visible():
+            # Fallback: find any small number input near the buy button
+            qty = page.locator('input[type="number"]').first
+        await qty.triple_click()
+        await qty.fill(str(quantity))
+        await page.wait_for_timeout(200)
 
     async def _click_market_order(self, side: str):
+        """Click Buy Mkt or Sell Mkt button."""
         page = self._page
         if side == "buy":
-            btn = page.locator(
-                'button:has-text("Buy"), [class*="buyBtn"], [data-testid="buy-btn"], button[class*="Buy"]'
-            ).first
+            btn = page.get_by_role("button", name="Buy Mkt")
         else:
-            btn = page.locator(
-                'button:has-text("Sell"), [class*="sellBtn"], [data-testid="sell-btn"], button[class*="Sell"]'
-            ).first
-
-        await btn.wait_for(timeout=5000)
-
-        # Verify this is a market order (not limit)
-        market_btn = page.locator('button:has-text("MKT"), button:has-text("Market"), [class*="market"]').first
-        if await market_btn.is_visible():
-            await market_btn.click()
-            await page.wait_for_timeout(200)
-
+            btn = page.get_by_role("button", name="Sell Mkt")
+        await btn.wait_for(timeout=10000)
         await btn.click()
+        logger.info("Clicked %s Mkt button", side.capitalize())
+
+    async def _click_exit(self):
+        """Click Exit at Mkt & Cxl to close the open position."""
+        page = self._page
+        btn = page.get_by_role("button", name="Exit at Mkt & Cxl")
+        if await btn.is_visible():
+            await btn.click()
+            await self._confirm_if_prompted()
+            logger.info("Clicked Exit at Mkt & Cxl")
+        else:
+            logger.info("No open position to close (Exit button not active)")
 
     async def _confirm_if_prompted(self):
         """Dismiss any order confirmation dialog."""
         page = self._page
-        await page.wait_for_timeout(800)
+        await page.wait_for_timeout(600)
         confirm = page.locator('button:has-text("Confirm"), button:has-text("OK"), button:has-text("Submit")').first
         if await confirm.is_visible():
             await confirm.click()
-
-    # ------------------------------------------------------------------
-    # Position flattening
-    # ------------------------------------------------------------------
-
-    async def _flatten_position(self, symbol: str):
-        page = self._page
-        # Navigate to positions panel and close matching symbol
-        pos_row = page.locator(f'[class*="position"]:has-text("{symbol}")').first
-        if not await pos_row.is_visible():
-            logger.info("No open position found for %s", symbol)
-            return
-        close_btn = pos_row.locator('button:has-text("Close"), button:has-text("Flatten")').first
-        await close_btn.click()
-        await self._confirm_if_prompted()
-
-    async def _flatten_all(self):
-        page = self._page
-        flatten_btn = page.locator('button:has-text("Flatten All"), button:has-text("Close All")').first
-        if await flatten_btn.is_visible():
-            await flatten_btn.click()
-            await self._confirm_if_prompted()
-        else:
-            logger.warning("Flatten All button not found")
 
 
 # ------------------------------------------------------------------
