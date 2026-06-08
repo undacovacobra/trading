@@ -14,7 +14,12 @@ Set your TradingView webhook URL to:  http://YOUR_SERVER_IP:8000/webhook
 
 import asyncio
 import logging
+import sys
 from contextlib import asynccontextmanager
+
+# Windows requires SelectorEventLoop for Playwright to work correctly
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel

@@ -78,7 +78,7 @@ class TradovateBrowser:
     # ------------------------------------------------------------------
 
     async def _login(self):
-        await self._page.goto(TRADOVATE_URL, wait_until="networkidle")
+        await self._page.goto(TRADOVATE_URL, wait_until="domcontentloaded", timeout=60000)
 
         # If already on the trading platform, session is still valid
         if "/welcome" not in self._page.url and "tradovate.com" in self._page.url:
