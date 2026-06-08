@@ -1,7 +1,10 @@
 .env
+session.json
 __pycache__/
 *.pyc
 *.pyo
 .venv/
 venv/
 *.log
+error_*.png
+login_page.html
