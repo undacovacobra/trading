@@ -1,3 +1,4 @@
+import hmac
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -7,7 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from tradovate import TradovateClient
+from browser_trader import TradovateBrowser
 
 load_dotenv()
 
@@ -19,23 +20,21 @@ log = logging.getLogger(__name__)
 
 WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]
 
-tradovate = TradovateClient(
-    username=os.environ["TRADOVATE_USERNAME"],
+trader = TradovateBrowser(
+    email=os.environ["TRADOVATE_EMAIL"],
     password=os.environ["TRADOVATE_PASSWORD"],
-    app_id=os.environ.get("TRADOVATE_APP_ID", "Sample App"),
-    app_version=os.environ.get("TRADOVATE_APP_VERSION", "1.0"),
-    cid=os.environ["TRADOVATE_CID"],
-    secret=os.environ["TRADOVATE_SECRET"],
-    demo=os.environ.get("TRADOVATE_DEMO", "true").lower() == "true",
+    headless=os.environ.get("HEADLESS", "true").lower() == "true",
 )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log.info("Authenticating with Tradovate...")
-    await tradovate._authenticate()
-    log.info("Tradovate authenticated. Account: %s (id=%s)", tradovate._account_spec, tradovate._account_id)
+    log.info("Starting browser and logging in to Tradovate...")
+    await trader.start()
+    log.info("Ready to receive alerts.")
     yield
+    log.info("Shutting down browser...")
+    await trader.stop()
 
 
 app = FastAPI(title="TradingView → Tradovate Webhook", lifespan=lifespan)
@@ -44,48 +43,33 @@ app = FastAPI(title="TradingView → Tradovate Webhook", lifespan=lifespan)
 class AlertPayload(BaseModel):
     secret: str
     action: Literal["buy", "sell", "close"]
-    symbol: str = Field(..., description="Tradovate contract name, e.g. ESU4, NQU4, MNQU4")
+    symbol: str = Field(..., description="Futures symbol, e.g. MNQU4, ESU4, NQU4")
     quantity: int = Field(default=1, ge=1)
 
 
 @app.post("/webhook", status_code=status.HTTP_200_OK)
 async def webhook(payload: AlertPayload, request: Request):
-    # Verify secret — constant-time compare to resist timing attacks
-    import hmac
     if not hmac.compare_digest(payload.secret, WEBHOOK_SECRET):
-        log.warning("Rejected webhook — bad secret from %s", request.client.host)
+        log.warning("Rejected alert — bad secret from %s", request.client.host)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid secret")
 
-    log.info("Alert received: action=%s symbol=%s qty=%d", payload.action, payload.symbol, payload.quantity)
+    log.info("Alert: %s %s x%d", payload.action.upper(), payload.symbol, payload.quantity)
 
     try:
-        if payload.action == "buy":
-            result = await tradovate.place_market_order(payload.symbol, "Buy", payload.quantity)
-        elif payload.action == "sell":
-            result = await tradovate.place_market_order(payload.symbol, "Sell", payload.quantity)
+        if payload.action in ("buy", "sell"):
+            result = await trader.place_order(payload.symbol, payload.action, payload.quantity)
         elif payload.action == "close":
-            result = await tradovate.close_position(payload.symbol, payload.quantity)
+            result = await trader.close_position(payload.symbol)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown action: {payload.action}")
 
-        log.info("Order result: %s", result)
         return {"status": "ok", "result": result}
 
     except Exception as exc:
-        log.exception("Order failed: %s", exc)
+        log.exception("Order execution failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "ok",
-        "account": tradovate._account_spec,
-        "account_id": tradovate._account_id,
-        "mode": "demo" if tradovate.base_url.startswith("https://demo") else "live",
-    }
-
-
-@app.get("/positions")
-async def positions():
-    return await tradovate.get_positions()
+    return {"status": "ok", "browser": "running"}
