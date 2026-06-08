@@ -80,8 +80,10 @@ class TradovateBrowser:
     async def _login(self):
         await self._page.goto(TRADOVATE_URL, wait_until="domcontentloaded", timeout=60000)
 
-        # If already on the trading platform, session is still valid
-        if "/welcome" not in self._page.url and "tradovate.com" in self._page.url:
+        # If already on the trading platform (not on login or intermediate pages), session is valid
+        url = self._page.url
+        blocked_pages = ("/welcome", "trading-mode", "/login", "auth")
+        if "tradovate.com" in url and not any(p in url for p in blocked_pages):
             logger.info("Session restored, already logged in")
             self._logged_in = True
             return
