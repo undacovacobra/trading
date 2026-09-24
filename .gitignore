@@ -8,3 +8,9 @@ venv/
 *.log
 error_*.png
 login_page.html
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+.pytest_cache/
+robinhood_tools.json

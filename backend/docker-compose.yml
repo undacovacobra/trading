@@ -1,0 +1,36 @@
+# Production-style stack: Caddy (automatic HTTPS on 443) -> app -> PostgreSQL.
+# TradingView only delivers webhooks to ports 80/443.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: options_bridge
+      POSTGRES_USER: options_bridge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    restart: unless-stopped
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://options_bridge:${POSTGRES_PASSWORD}@db:5432/options_bridge
+      TRUST_PROXY_HEADERS: "true"
+      REQUIRE_HTTPS: "true"
+    depends_on: [db]
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [app]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
