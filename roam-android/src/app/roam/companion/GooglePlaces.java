@@ -154,6 +154,7 @@ final class GooglePlaces {
         p.put("lat", loc.optDouble("latitude"));
         p.put("lng", loc.optDouble("longitude"));
         p.put("tags", new JSONArray(tags));
+        if (g.optJSONArray("types") != null) p.put("types", g.getJSONArray("types"));
         JSONObject kind = g.optJSONObject("primaryTypeDisplayName");
         p.put("kind", kind != null ? kind.optString("text") : "");
         if (g.has("rating")) p.put("rating", g.optDouble("rating"));
@@ -194,6 +195,52 @@ final class GooglePlaces {
         if ("PRICE_LEVEL_EXPENSIVE".equals(level)) return 3;
         if ("PRICE_LEVEL_VERY_EXPENSIVE".equals(level)) return 4;
         return -1;
+    }
+
+    /**
+     * Google's short editorial description and up to five reviews for one place, for the daily
+     * pick's "why". Cached for two weeks; budgeted separately because these fields cost more.
+     */
+    static JSONObject details(Context c, String googleId) throws IOException, JSONException {
+        if (!googleId.matches("[A-Za-z0-9_\\-]{10,300}")) throw new IOException("Bad place id");
+        FileCache cache = new FileCache(c, "details", 5_000_000);
+        String key = FileCache.key("d:" + googleId);
+        String hit = cache.getText(key, 14L * 24 * 3_600_000L);
+        if (hit != null) return new JSONObject(hit);
+        if (!Keys.googleReady(c) || !Keys.spend(c, "details")) return null;
+        Map<String, String> h = new HashMap<String, String>();
+        h.put("X-Goog-Api-Key", Keys.get(c, Keys.GOOGLE));
+        h.put("X-Goog-FieldMask", "id,editorialSummary,reviews");
+        h.put("Accept", "application/json");
+        JSONObject r;
+        try {
+            r = check(Http.exchange("GET", "https://places.googleapis.com/v1/places/" + googleId + "?languageCode=en",
+                    h, null, null, 400_000));
+        } catch (KeyProblem e) {
+            Keys.block(c, e.getMessage());
+            throw e;
+        }
+        JSONObject out = new JSONObject();
+        JSONObject summary = r.optJSONObject("editorialSummary");
+        if (summary != null && !summary.optString("text").isEmpty()) out.put("summary", Json.clip(summary.optString("text"), 300));
+        JSONArray reviews = new JSONArray();
+        JSONArray given = r.optJSONArray("reviews");
+        if (given != null) {
+            for (int i = 0; i < given.length(); i++) {
+                JSONObject rv = given.optJSONObject(i);
+                if (rv == null) continue;
+                JSONObject text = rv.optJSONObject("text");
+                if (text == null || text.optString("text").isEmpty()) continue;
+                JSONObject by = rv.optJSONObject("authorAttribution");
+                reviews.put(new JSONObject().put("rating", rv.optInt("rating"))
+                        .put("text", Json.clip(text.optString("text"), 1500))
+                        .put("when", rv.optString("relativePublishTimeDescription"))
+                        .put("by", by == null ? "" : by.optString("displayName")));
+            }
+        }
+        out.put("reviews", reviews);
+        cache.putText(key, out.toString());
+        return out;
     }
 
     /** Resolves a photo name to a short-lived image URL (one billable call). */

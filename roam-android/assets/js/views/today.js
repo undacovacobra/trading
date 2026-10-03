@@ -1,47 +1,60 @@
-// Today: one great idea for right now, then what's coming up, then a few more worth a detour.
+// Today: one curated pick (chosen once a day on the phone), two alternatives, and your plans.
+// Browsing everything nearby lives in Explore.
 
-import { state } from '../store.js';
-import { $, esc, icon, nowLabel, miles, watchImages } from '../util.js';
-import { status } from '../native.js';
+import { state, save } from '../store.js';
+import { esc, icon, nowLabel, photo, watchImages, toast, miles } from '../util.js';
 import * as data from '../data.js';
 import { skyIcon } from '../context.js';
-import { score, available, diversify, shown, openState, tasteOf } from '../taste.js';
-import { hero, row, eventCard, skeleton, act, plannedRow } from './cards.js';
+import { toggleSave, pass } from '../taste.js';
+import { act, plannedRow, link } from './cards.js';
 import * as P from '../plans.js';
 
-const FILTERS = [
-  ['now', 'Right now', null],
-  ['outside', 'Outside', ['outdoors', 'trails', 'views', 'gardens']],
-  ['coffee', 'Coffee & tea', ['coffee', 'sweet', 'quiet']],
-  ['food', 'Food', ['food']],
-  ['drinks', 'Drinks', ['drinks', 'nightlife']],
-  ['culture', 'Culture', ['culture', 'books', 'sights', 'music']],
-  ['new', 'Somewhere new', 'new'],
-];
-let filter = 'now';
-let shownCount = 6;
+let pick = null;          // { date, item, words, alternates, ... } or { error }
+let loading = false;
+let showWhy = false;
+
+async function load(app, another = false, fresh = false) {
+  if (loading) return;
+  loading = true;
+  if (another) app.rerender();
+  app.pushSnapshotNow();
+  try {
+    const r = await fetch('/api/pick' + (another ? '?another=1' : fresh ? '?fresh=1' : ''));
+    const next = await r.json();
+    if (next.notice) toast(next.notice);
+    pick = next;
+    for (const x of [next.item, ...(next.alternates || []).map(a => a.item)]) if (x) data.remember(x);
+  } catch {
+    pick = { error: 'Today’s pick isn’t ready. Check your connection and try again.' };
+  } finally {
+    loading = false;
+    showWhy = false;
+    app.rerender();
+  }
+}
+
+/** Forget the pick on screen (e.g. after a location change) and ask the phone again. */
+export function refreshPick(app) { pick = null; load(app); }
 
 export function render(root, _param, app) {
   const origin = app.origin();
-  const ctx = app.ctx();
   const weather = data.currentWeather();
-  const loading = app.isLoading();
+  if (origin && (!pick || (pick.date && pick.date !== P.today())) && !loading) load(app);
+  // Travelled far since the pick was made (say, on a trip): choose again for where you are now.
+  else if (origin && pick?.item && !loading && miles(origin, pick.item) > 40) load(app, false, true);
 
   const header = `<header class="today-head">
     <div>
-      <span class="eyebrow">${nowLabel(ctx.date)}</span>
+      <span class="eyebrow">${nowLabel(new Date())}</span>
       <a class="place-name" href="#/you/location">${icon('pin', 16)}${esc(origin?.name || 'Set your location')}</a>
     </div>
-    <div class="head-actions">
-      ${weather && !weather.error ? `<span class="weather">${icon(skyIcon(weather), 16)}${weather.tempF}°</span>` : ''}
-      <button type="button" class="round small" data-refresh aria-label="Refresh">${icon('refresh', 18)}</button>
-    </div>
+    ${weather && !weather.error ? `<span class="weather">${icon(skyIcon(weather), 16)}${weather.tempF}°</span>` : ''}
   </header>`;
 
   if (!origin) {
     root.innerHTML = `${header}<section class="empty-hero">
       <h1>Where are you?</h1>
-      <p>Roam needs a starting point to find good things nearby.</p>
+      <p>Roam picks one great thing a day near you. It needs a starting point.</p>
       <button type="button" class="pill dark" data-locate>${icon('locate', 18)}Use my location</button>
       <a class="pill outline" href="#/you/location">Choose a place</a>
     </section>`;
@@ -49,49 +62,69 @@ export function render(root, _param, app) {
     return;
   }
 
-  const [, , tags] = FILTERS.find(f => f[0] === filter);
-  const nearby = data.places().filter(p => available(p) && miles(origin, p) < 30);
-  let pool = nearby;
-  if (Array.isArray(tags)) pool = nearby.filter(p => p.tags.some(t => tags.includes(t)));
-  if (tags === 'new') pool = nearby.filter(p => Math.abs(tasteOf(p.tags)) < 0.5 && !state.went[p.id] && !state.saved[p.id]);
-  const scoreOf = p => score(p, ctx, origin);
-
-  const ranked = diversify(pool, scoreOf, shownCount + 1);
-  const heroPick = ranked.find(p => p.photos?.length && openState(p, ctx.date).open !== false) || ranked[0];
-  const rest = ranked.filter(p => p !== heroPick).slice(0, shownCount);
-  if (heroPick) shown(heroPick);
-
-  const upcoming = data.events().filter(e => available(e) && e.start < Date.now() + 14 * 86400000)
-    .map(e => ({ e, s: score(e, ctx, origin) })).sort((a, b) => b.s - a.s).slice(0, 8).map(x => x.e)
-    .sort((a, b) => a.start - b.start);
-
-  const weekly = status().weeklyLast;
-  const picks = weekly?.at && Date.now() - weekly.at < 3 * 86400000 ? (weekly.ids || []).map(data.get).filter(Boolean) : [];
-  const info = data.placesInfo();
-  const evInfo = data.eventsInfo();
   const todays = P.plannedOn(P.today()).map(data.get).filter(Boolean);
   const nextTrip = P.upcomingTrips().find(t => P.daysBetween(P.today(), t.start) <= 14);
 
   root.innerHTML = `${header}
-    <h1 class="headline">${esc(ctx.headline)}</h1>
-    ${heroPick ? hero(heroPick, origin, ctx) : loading ? skeleton('hero') : emptyPool(nearby.length)}
-    <div class="filters" role="tablist" aria-label="What are you in the mood for?">
-      ${FILTERS.map(([k, label]) => `<button type="button" role="tab" class="filter ${k === filter ? 'on' : ''}" aria-selected="${k === filter}" data-filter="${k}">${label}</button>`).join('')}
-    </div>
+    ${pickCard()}
+    ${pick?.alternates?.length && !pick.error ? `<section class="alts"><h3>If not that</h3>${pick.alternates.map(alt).join('')}</section>` : ''}
     ${todays.length ? `<section><h3>Today's plans</h3>${todays.map(p => plannedRow(p, origin, P.today())).join('')}</section>` : ''}
     ${nextTrip ? tripBanner(nextTrip) : ''}
-    ${picks.length ? `<section id="picks"><h3>This week's picks</h3>${picks.map(p => row(p, origin, ctx)).join('')}</section>` : ''}
-    ${upcoming.length ? `<section><div class="section-head"><h3>Coming up near you</h3></div><div class="rail">${upcoming.map(e => eventCard(e, origin)).join('')}</div></section>`
-      : evInfo.needsKey ? `<section class="hint"><p>${icon('ticket', 18)} See concerts, games and shows near you by adding a free Ticketmaster key.</p><a href="#/you/keys">Add key</a></section>` : ''}
-    <section>
-      <h3>Worth a detour</h3>
-      ${rest.length ? rest.map(p => row(p, origin, ctx)).join('') : loading ? skeleton('rows', 4) : ''}
-      ${ranked.length > shownCount ? '<button type="button" class="pill outline wide" data-more>Show me more</button>' : ''}
-    </section>
-    ${info.source === 'osm' ? `<section class="hint"><p>${icon('spark', 18)} You're seeing free map data. Add a Google Places key for photos, hours and ratings.</p><a href="#/you/keys">Add key</a></section>` : ''}
-    <p class="footnote">${loading ? 'Looking around…' : info.at ? `Checked ${new Date(info.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${info.source === 'google' ? 'Places & photos from Google' : 'Map data © OpenStreetMap contributors'}` : ''}</p>`;
+    <a class="browse" href="#/explore">Browse everything nearby ${icon('arrow', 18)}</a>`;
   bind(root, app);
   watchImages(root);
+}
+
+function pickCard() {
+  if (loading && (!pick || pick.error)) {
+    return `<article class="daily"><div class="pick-photo skeleton"></div><div class="pick-body"><span class="eyebrow">TODAY'S PICK</span><p class="muted">Choosing today’s pick…</p></div></article>`;
+  }
+  if (!pick || pick.error) {
+    const needsKey = /Google|key/i.test(pick?.error || '');
+    return `<article class="daily none"><div class="pick-body">
+      <span class="eyebrow">TODAY'S PICK</span>
+      <h1 class="pick-headline">${needsKey ? 'Roam needs ratings and reviews to pick well' : 'Nothing worth your time yet'}</h1>
+      <p class="muted">${esc(pick?.error || '')}</p>
+      ${needsKey ? '<a class="pill dark" href="#/you/keys">Add a Google key</a>' : '<button type="button" class="pill outline" data-retry>Try again</button>'}
+    </div></article>`;
+  }
+  const item = data.get(pick.item.id) || pick.item;
+  const w = pick.words || {};
+  const saved = !!state.saved[item.id];
+  const kind = item.type === 'event' ? (item.genre || 'Event') : item.kind;
+  return `<article class="daily${loading ? ' dim' : ''}">
+    <a class="pick-photo" href="${link(item)}" aria-label="${esc(item.name)}">${photo(item, 800, 'pick-img')}</a>
+    <div class="pick-body">
+      <span class="eyebrow accent">TODAY'S PICK${kind ? ' · ' + esc(kind.toUpperCase()) : ''}</span>
+      <h1 class="pick-headline">${esc(w.headline || item.name)}</h1>
+      <a class="pick-name" href="${link(item)}">${esc(item.name)} ${icon('arrow', 16)}</a>
+      ${w.practical ? `<p class="pick-practical">${esc(w.practical)}</p>` : ''}
+      ${w.about ? `<p class="pick-about">${esc(w.about)}</p>` : ''}
+      ${w.quote ? `<blockquote class="pick-quote">“${esc(w.quote.text)}”${w.quote.by ? `<cite>${esc(w.quote.by)}, Google review</cite>` : ''}</blockquote>` : ''}
+      ${w.highlights?.length ? `<p class="pick-mentions"><span>People mention</span>${w.highlights.map(h => `<b>${esc(h)}</b>`).join('')}</p>` : ''}
+      ${w.why?.length ? `<ul class="pick-why">${w.why.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      <div class="pick-actions">
+        <button type="button" class="pill accent grow" data-act="go" data-id="${esc(item.id)}">${icon('go', 18)}Let's go</button>
+        <button type="button" class="pill outline ${saved ? 'on' : ''}" data-into>${saved ? `${icon('check', 18)}Saved` : 'Into it'}</button>
+        <a class="round bordered" href="${link(item)}" aria-label="Plan it or see more">${icon('calendar', 20)}</a>
+      </div>
+      ${showWhy ? `<div class="pass-reasons"><span>What’s off about it?</span><div class="chips">
+        <button type="button" class="chip-btn" data-pass="far">Too far</button>
+        <button type="button" class="chip-btn" data-pass="vibe">Not my vibe</button>
+        ${item.type === 'event' ? '' : '<button type="button" class="chip-btn" data-pass="been">Been there</button>'}
+        <button type="button" class="chip-btn" data-pass="later">Not today</button></div></div>`
+        : `<button type="button" class="text-link quiet" data-notforme>Not for me? Show me another</button>`}
+    </div>
+  </article>`;
+}
+
+function alt(a) {
+  const item = data.get(a.item.id) || a.item;
+  return `<a class="alt" href="${link(item)}">
+    ${photo(item, 200, 'thumb')}
+    <span class="row-text"><strong>${esc(item.name)}</strong><span class="why">${esc(a.words?.headline || '')}</span>
+    <span class="meta">${esc(a.words?.practical || '')}</span></span>
+  </a>`;
 }
 
 function tripBanner(t) {
@@ -101,19 +134,27 @@ function tripBanner(t) {
   return `<a class="hint trip-banner" href="#/plans/trip/${encodeURIComponent(t.id)}"><p>${icon('calendar', 18)}<span><strong>${esc(t.name)}</strong> · ${when}. ${n ? `${n} planned.` : 'See ideas and events for your dates.'}</span></p><span class="go">${icon('arrow', 18)}</span></a>`;
 }
 
-function emptyPool(total) {
-  if (!total) return `<section class="empty-hero"><h1>Nothing loaded yet</h1><p>Check your connection, then refresh.</p><button type="button" class="pill dark" data-refresh>Try again</button></section>`;
-  return `<section class="empty-hero small"><p>Nothing matches that right now. Try another mood.</p></section>`;
-}
-
 function bind(root, app) {
   root.onclick = e => {
     if (act(e, app)) return;
-    const f = e.target.closest('[data-filter]');
-    if (f) { filter = f.dataset.filter; shownCount = 6; app.rerender(); return; }
-    if (e.target.closest('[data-more]')) { shownCount += 6; app.rerender(); return; }
-    // Refresh re-reads what the phone has; it only goes back to Google when results are old.
-    if (e.target.closest('[data-refresh]')) { app.refresh(true); return; }
-    if (e.target.closest('[data-locate]')) { app.locate(); }
+    if (e.target.closest('[data-locate]')) { app.locate(); return; }
+    if (e.target.closest('[data-retry]')) { refreshPick(app); return; }
+    const item = pick?.item && (data.get(pick.item.id) || pick.item);
+    if (!item) return;
+    if (e.target.closest('[data-into]')) {
+      if (!state.saved[item.id]) { toggleSave(item); save(); toast('Saved. Roam will look for more like this.'); }
+      app.rerender();
+      return;
+    }
+    if (e.target.closest('[data-notforme]')) { showWhy = true; app.rerender(); return; }
+    const r = e.target.closest('[data-pass]');
+    if (r) {
+      pass(item, r.dataset.pass);
+      save();
+      toast({ far: 'Noted. Keeping picks closer.', vibe: 'Got it. Less like this.', been: 'Marked as been there.', later: 'Okay, here’s another.' }[r.dataset.pass]);
+      // The phone needs the updated "not this" list before choosing again.
+      app.pushSnapshotNow();
+      load(app, true);
+    }
   };
 }

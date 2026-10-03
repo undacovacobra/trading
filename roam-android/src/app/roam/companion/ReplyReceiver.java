@@ -20,7 +20,7 @@ public final class ReplyReceiver extends BroadcastReceiver {
             return;
         }
         if (DISMISS_WEEKLY.equals(action)) {
-            NativeNotifications.manager(c).cancel(WeeklyReceiver.NOTIFICATION_ID);
+            NativeNotifications.manager(c).cancel(DailyPick.NOTIFICATION_ID);
             return;
         }
         String placeId = intent.getStringExtra("placeId");

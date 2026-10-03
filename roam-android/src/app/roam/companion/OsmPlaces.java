@@ -124,6 +124,8 @@ final class OsmPlaces {
         String commons = tags.optString("wikimedia_commons");
         if (commons.matches("File:[^\\n]{1,300}")) photos.put(new JSONObject().put("ref", "c:" + commons).put("by", "Wikimedia Commons"));
         p.put("photos", photos);
+        // Places with a Wikipedia/Wikidata entry are notable enough to be a daily pick without ratings.
+        if (!tags.optString("wikidata").isEmpty() || !tags.optString("wikipedia").isEmpty()) p.put("notable", true);
         return p;
     }
 

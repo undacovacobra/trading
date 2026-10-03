@@ -2,8 +2,8 @@
 
 import { esc, icon, miles, watchImages, toast } from '../util.js';
 import * as data from '../data.js';
-import { TAGS, score, available, openState } from '../taste.js';
-import { row, act } from './cards.js';
+import { TAGS, score, available, openState, diversify } from '../taste.js';
+import { row, act, eventCard } from './cards.js';
 
 const BROWSE = ['coffee', 'food', 'drinks', 'outdoors', 'trails', 'views', 'culture', 'books', 'sweet', 'fun', 'gardens', 'nightlife', 'wellness', 'music'];
 let query = '';
@@ -46,6 +46,8 @@ export function render(root, tag, app) {
         <input type="search" name="q" placeholder="Tacos, climbing gym, rooftop…" value="${esc(query)}" aria-label="Search places" enterkeyhint="search" autocomplete="off">
         ${busy ? '<span class="spinner" aria-label="Searching"></span>' : ''}
       </form>
+      ${browse(origin, ctx)}
+      <h3 class="tiles-title">By kind</h3>
       <div class="tiles">
         ${BROWSE.map(t => `<a class="tile" href="#/explore/${t}"><strong>${esc(TAGS[t].label)}</strong><span>${count(t, origin)}</span></a>`).join('')}
       </div>
@@ -55,7 +57,8 @@ export function render(root, tag, app) {
   root.onclick = e => {
     if (act(e, app)) return;
     const s = e.target.closest('[data-sort]');
-    if (s) { sort = s.dataset.sort; app.rerender(); }
+    if (s) { sort = s.dataset.sort; app.rerender(); return; }
+    if (e.target.closest('[data-more]')) { more += 6; app.rerender(); }
   };
   root.onsubmit = e => {
     if (!e.target.matches('[data-search]')) return;
@@ -64,6 +67,19 @@ export function render(root, tag, app) {
     if (text) searchFor(text, app);
   };
   watchImages(root);
+}
+
+let more = 6;
+
+/** What used to fill Today: upcoming events and a varied list of good places nearby. */
+function browse(origin, ctx) {
+  const upcoming = data.events().filter(e => available(e) && e.start < Date.now() + 14 * 86400000)
+    .map(e => ({ e, s: score(e, ctx, origin) })).sort((a, b) => b.s - a.s).slice(0, 8).map(x => x.e)
+    .sort((a, b) => a.start - b.start);
+  const list = diversify(data.places().filter(p => available(p) && miles(origin, p) < 30), p => score(p, ctx, origin), more + 1);
+  return `${upcoming.length ? `<section><h3>Coming up near you</h3><div class="rail">${upcoming.map(e => eventCard(e, origin)).join('')}</div></section>` : ''}
+    ${list.length ? `<section><h3>Good right now</h3>${list.slice(0, more).map(p => row(p, origin, ctx)).join('')}
+      ${list.length > more ? '<button type="button" class="pill outline wide" data-more>Show more</button>' : ''}</section>` : ''}`;
 }
 
 function count(tag, origin) {

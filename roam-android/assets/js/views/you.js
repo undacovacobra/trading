@@ -6,7 +6,6 @@ import { $, esc, icon, toast } from '../util.js';
 import * as data from '../data.js';
 import { TAGS, evidence, bringBack } from '../taste.js';
 
-const DAYS = [[1, 'Monday'], [2, 'Tuesday'], [3, 'Wednesday'], [4, 'Thursday'], [5, 'Friday'], [6, 'Saturday'], [7, 'Sunday']];
 let places = [];
 
 export function render(root, section, app) {
@@ -18,7 +17,7 @@ export function render(root, section, app) {
   const less = tags.filter(t => w[t] < -0.4).sort((a, b) => w[a] - w[b]).slice(0, 4);
   const max = Math.max(1, ...more.map(t => w[t]));
   const keys = s.keys || {};
-  const weekly = state.settings.weekly;
+  const daily = state.settings.daily;
 
   root.innerHTML = `<h1 class="page-title">You, lately</h1>
     <p class="lede">Built from what you save, skip and go to. Tap anything to change it.</p>
@@ -40,11 +39,10 @@ export function render(root, section, app) {
     </section>` : ''}
 
     <section class="card list">
-      <label class="setting"><span><strong>Weekly picks</strong><small>Three ideas, at a time you choose</small></span>
-        <input type="checkbox" data-set="weekly" ${weekly.enabled ? 'checked' : ''}></label>
-      ${weekly.enabled ? `<div class="setting inline">
-        <select data-set="weekly-day" aria-label="Day">${DAYS.map(([v, l]) => `<option value="${v}" ${weekly.day === v ? 'selected' : ''}>${l}s</option>`).join('')}</select>
-        <input type="time" data-set="weekly-time" value="${esc(weekly.time)}" aria-label="Time"></div>` : ''}
+      <label class="setting"><span><strong>Daily pick</strong><small>One place or event worth your time, sent as a notification</small></span>
+        <input type="checkbox" data-set="daily" ${daily.enabled ? 'checked' : ''}></label>
+      ${daily.enabled ? `<div class="setting inline"><span class="muted">Send it at</span>
+        <input type="time" data-set="daily-time" value="${esc(daily.time)}" aria-label="Pick time"></div>` : ''}
       <label class="setting"><span><strong>“Heading out?” ideas</strong><small>${departureNote(s)}</small></span>
         <input type="checkbox" data-set="departure" ${state.settings.departure ? 'checked' : ''}></label>
       <div class="setting stack"><span><strong>Quiet hours</strong><small>No “heading out” ideas in this window</small></span>
@@ -106,18 +104,17 @@ export function render(root, section, app) {
     const set = el.dataset.set;
     if (el.id === 'restore-file') return restore(el.files[0], el);
     if (!set) return;
-    if (set === 'weekly') state.settings.weekly.enabled = el.checked;
-    if (set === 'weekly-day') state.settings.weekly.day = Number(el.value);
-    if (set === 'weekly-time' && el.value) state.settings.weekly.time = el.value;
+    if (set === 'daily') state.settings.daily.enabled = el.checked;
+    if (set === 'daily-time' && el.value) state.settings.daily.time = el.value;
     if (set === 'quiet-start' && el.value) state.settings.quiet.start = el.value;
     if (set === 'quiet-end' && el.value) state.settings.quiet.end = el.value;
     if (set === 'departure') {
       state.settings.departure = el.checked;
       if (el.checked) phone.request('tracking'); else phone.stopTracking();
     }
-    if (set === 'weekly' && el.checked && isPhone && !status().notifications) phone.request('notifications');
+    if (set === 'daily' && el.checked && isPhone && !status().notifications) phone.request('notifications');
     save();
-    if (set === 'weekly' || set === 'departure') app.rerender();
+    if (set === 'daily' || set === 'departure') app.rerender();
   };
   root.onsubmit = e => {
     const form = e.target.closest('[data-key]');

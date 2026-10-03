@@ -7,7 +7,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -118,26 +117,6 @@ public class DataSourcesTest {
     }
 
     @Test
-    public void weeklyPicksAreVaried() throws Exception {
-        long now = ZonedDateTime.of(2026, 10, 2, 17, 0, 0, 0, ZoneId.of("America/Denver")).toInstant().toEpochMilli();
-        JSONArray c = new JSONArray()
-                .put(new JSONObject().put("id", "a").put("score", 9).put("tags", new JSONArray().put("coffee")).put("line", "a slow coffee at Boxcar"))
-                .put(new JSONObject().put("id", "b").put("score", 8).put("tags", new JSONArray().put("coffee")).put("line", "tea at the Teahouse"))
-                .put(new JSONObject().put("id", "c").put("score", 7).put("tags", new JSONArray().put("trails")).put("line", "the loop at Chautauqua"))
-                .put(new JSONObject().put("id", "past").put("type", "event").put("score", 99).put("start", now - 1000))
-                .put(new JSONObject().put("id", "show").put("type", "event").put("score", 6).put("start", now + 4 * 86_400_000L)
-                        .put("tags", new JSONArray().put("music")).put("line", "Big Thief at Red Rocks"));
-        List<JSONObject> picks = WeeklyPicks.choose(c, now, 3);
-        assertEquals(3, picks.size());
-        assertEquals("a", picks.get(0).getString("id"));
-        assertEquals("c", picks.get(1).getString("id"));
-        assertEquals("show", picks.get(2).getString("id"));
-        String text = WeeklyPicks.message(picks, ZonedDateTime.of(2026, 10, 2, 17, 0, 0, 0, ZoneId.of("America/Denver")));
-        assertTrue(text, text.startsWith("A slow coffee at Boxcar, the loop at Chautauqua, and Big Thief at Red Rocks on "));
-        assertFalse(text.contains("past"));
-    }
-
-    @Test
     public void addressesAreWordsNotCoordinates() throws Exception {
         JSONObject a = new JSONObject("{\"house_number\":\"1770\",\"road\":\"13th Street\",\"city\":\"Boulder\","
                 + "\"state\":\"Colorado\",\"country\":\"United States\"}");
@@ -149,13 +128,4 @@ public class DataSourcesTest {
         assertEquals("Denver, Denver County, Colorado", HomeSearch.label(null, "Denver, Denver County, Colorado, United States"));
     }
 
-    @Test
-    public void weeklyAlarmLandsOnTheChosenDay() {
-        ZonedDateTime thu = ZonedDateTime.of(2026, 10, 1, 9, 0, 0, 0, ZoneId.of("America/Denver"));
-        ZonedDateTime next = WeeklyPicks.next(thu, 5, "17:00");
-        assertEquals(java.time.DayOfWeek.FRIDAY, next.getDayOfWeek());
-        assertEquals(17, next.getHour());
-        ZonedDateTime fridayEvening = ZonedDateTime.of(2026, 10, 2, 18, 0, 0, 0, ZoneId.of("America/Denver"));
-        assertEquals(9, WeeklyPicks.next(fridayEvening, 5, "17:00").getDayOfMonth());
-    }
 }

@@ -47,7 +47,6 @@ final class WebBridge {
             s.put("keys", Keys.status(c));
             s.put("calendar", DeviceCalendar.connected(c));
             s.put("calendarPermission", DeviceCalendar.permitted(c));
-            s.put("weeklyLast", Json.object(NativeStore.prefs(c).getString("weeklyLast", "{}")));
         } catch (JSONException ignored) {
             // return what we have
         }
@@ -64,7 +63,7 @@ final class WebBridge {
             return;
         }
         NativeStore.prefs(activity).edit().putString("snapshot", json).apply();
-        WeeklyReceiver.schedule(activity);
+        DailyPick.schedule(activity);
     }
 
     @JavascriptInterface

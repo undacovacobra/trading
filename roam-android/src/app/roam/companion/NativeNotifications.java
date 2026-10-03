@@ -50,7 +50,7 @@ final class NativeNotifications {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    private static PendingIntent reply(Context c, String placeId, String action, boolean mutable) {
+    static PendingIntent reply(Context c, String placeId, String action, boolean mutable) {
         Intent i = new Intent(c, ReplyReceiver.class).setAction(action).putExtra("placeId", placeId);
         // A RemoteInput reply needs a mutable PendingIntent on Android 12+.
         int flags = PendingIntent.FLAG_UPDATE_CURRENT

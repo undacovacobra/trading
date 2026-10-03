@@ -37,7 +37,7 @@ rm -rf "$OUT" && mkdir -p "$OUT"/{gen,classes,test-classes}
 echo "== Unit tests"
 # Pure logic and the API normalizers. The Android framework jar is on the path only so classes that
 # also talk to Android compile; tests call their pure methods. org.json comes first on the path.
-LOGIC="DepartureDetector LocationPlan NudgePolicy Units Json Suggestions WeeklyPicks PlaceTags GooglePlaces OsmPlaces Events Weather Keys FileCache Http HomeSearch BuildInfo"
+LOGIC="DepartureDetector LocationPlan NudgePolicy Units Json Suggestions Curator PlaceTags GooglePlaces OsmPlaces Events Weather Keys FileCache Http HomeSearch BuildInfo"
 LOGIC_SRC=$(for c in $LOGIC; do echo src/app/roam/companion/$c.java; done)
 javac -nowarn --release 17 -d "$OUT/test-classes" -cp "$JUNIT:$ORGJSON:$FW_JAVA" $LOGIC_SRC $(find test -name '*.java')
 java -cp "$OUT/test-classes:$JUNIT:$HAMCREST:$ORGJSON:$FW_JAVA" org.junit.runner.JUnitCore \

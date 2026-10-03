@@ -18,6 +18,9 @@ final class Keys {
     /** Budgets per month. Google's free tiers are per SKU; these stay comfortably below them. */
     static final int SEARCH_BUDGET = 900;
     static final int PHOTO_BUDGET = 900;
+    /** Reviews and descriptions for the daily pick's shortlist (Google's pricier "Atmosphere" data). */
+    static final int DETAILS_BUDGET = 250;
+    static final int DETAILS_PER_DAY = 10;
     /** Daily ceilings so one bad day (or a bug) can't burn a month's budget. */
     static final int SEARCH_PER_DAY = 40;
     static final int PHOTO_PER_DAY = 60;
@@ -75,14 +78,14 @@ final class Keys {
     }
 
     static int budget(String kind) {
-        return "photo".equals(kind) ? PHOTO_BUDGET : SEARCH_BUDGET;
+        return "photo".equals(kind) ? PHOTO_BUDGET : "details".equals(kind) ? DETAILS_BUDGET : SEARCH_BUDGET;
     }
 
     /** Reserves one call from this month's budget; false when the budget is spent. */
     static synchronized boolean spend(Context c, String kind) {
         int n = used(c, kind);
         int today = prefs(c).getInt(dayBucket(kind), 0);
-        int daily = "photo".equals(kind) ? PHOTO_PER_DAY : SEARCH_PER_DAY;
+        int daily = "photo".equals(kind) ? PHOTO_PER_DAY : "details".equals(kind) ? DETAILS_PER_DAY : SEARCH_PER_DAY;
         if (n >= budget(kind) || today >= daily || blocked(c)) return false;
         prefs(c).edit().putInt(bucket(kind), n + 1).putInt(dayBucket(kind), today + 1).apply();
         return true;
@@ -99,6 +102,8 @@ final class Keys {
             s.put("searchBudget", SEARCH_BUDGET);
             s.put("photoUsed", used(c, "photo"));
             s.put("photoBudget", PHOTO_BUDGET);
+            s.put("detailsUsed", used(c, "details"));
+            s.put("detailsBudget", DETAILS_BUDGET);
             s.put("searchToday", prefs(c).getInt(dayBucket("search"), 0));
             s.put("searchPerDay", SEARCH_PER_DAY);
             if (blocked(c)) s.put("googleProblem", prefs(c).getString("blockedMessage", ""));

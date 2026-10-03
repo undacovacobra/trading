@@ -86,6 +86,13 @@ export const geocode = text => getJSON(`/api/geocode?q=${encodeURIComponent(text
 /** { name: 'Boulder', address: '1770 13th Street, Boulder' }, or null when the lookup fails. */
 export const reverse = o => getJSON(`/api/reverse?${q(o)}`).then(d => (d.name || d.address ? d : null)).catch(() => null);
 
+/** Keep an item the phone handed us (today's pick) so its page works. */
+export function remember(item) {
+  if (!item?.id) return;
+  catalog.set(item.id, { ...catalog.get(item.id), ...item });
+  persist();
+}
+
 export function get(id) {
   return catalog.get(id) || state.saved[id] || state.keep?.[id] || null;
 }

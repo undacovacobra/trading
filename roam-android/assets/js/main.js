@@ -5,7 +5,7 @@ import { phone, status } from './native.js';
 import { $, $$, hydrateIcons, toast, miles, debounce } from './util.js';
 import * as data from './data.js';
 import { context } from './context.js';
-import { decay, pass, toggleSave, score, available, lineFor, reason } from './taste.js';
+import { decay, pass, toggleSave, score, available, reason, TAGS, evidence as evidenceOf } from './taste.js';
 import * as today from './views/today.js';
 import * as explore from './views/explore.js';
 import * as saved from './views/saved.js';
@@ -32,6 +32,7 @@ export const app = {
   refresh,
   locate,
   setLocation,
+  pushSnapshotNow: () => pushSnapshotNow(),
 };
 
 // ---- Routing --------------------------------------------------------------------------------
@@ -148,31 +149,45 @@ window.roamNativeRefresh = () => {
 
 window.roamNativeCalendarReady = () => { toast('Calendar connected.'); route(true); pushSnapshot(); };
 window.roamNativeOpen = id => { if (id && data.get(id)) app.go('#/place/' + encodeURIComponent(id)); };
-window.roamNativeView = view => { if (view === 'picks') { app.go('#/today'); setTimeout(() => $('#picks')?.scrollIntoView({ behavior: 'smooth' }), 300); } };
+window.roamNativeView = view => { if (view === 'pick') { app.go('#/today'); window.scrollTo(0, 0); } };
 window.roamNativeShare = text => { app.go('#/explore'); setTimeout(() => explore.searchFor?.(text, app), 50); };
 
-/** What the phone needs to send good notifications while Roam is closed. */
-const pushSnapshot = debounce(() => {
+/** What the phone needs to choose the daily pick and send suggestions while Roam is closed. */
+function buildSnapshot() {
   const origin = state.location;
-  if (!origin) return;
-  const ctx = null; // background ranking ignores the current hour; the phone checks timing itself
-  const items = data.all().filter(i => available(i) && miles(origin, i) < (i.type === 'event' ? 40 : 15));
-  const ranked = items.map(i => ({ i, s: score(i, ctx, origin) })).sort((a, b) => b.s - a.s);
-  const places = ranked.filter(r => r.i.type !== 'event').slice(0, 120).map(({ i, s }) => ({
-    id: i.id, name: i.name, lat: i.lat, lng: i.lng, rank: Math.round(s * 10), reason: reason(i, origin) || 'A place you might enjoy',
-    lateNight: i.tags.includes('nightlife'), start: 0, rejected: false, snoozeUntil: state.snoozed[i.id] || 0,
-  }));
-  const picks = ranked.slice(0, 40).map(({ i, s }) => ({
-    id: i.id, name: i.name, type: i.type === 'event' ? 'event' : 'place', score: s, start: i.start || 0, tags: i.tags,
-    photo: i.type === 'event' ? i.image || '' : i.photos?.[0]?.ref || '', line: lineFor(i),
-  }));
-  phone.snapshot(JSON.stringify({
-    weekly: state.settings.weekly,
+  const now = Date.now();
+  const exclude = new Set(Object.keys(state.hidden));
+  for (const [id, at] of Object.entries(state.went)) if (now - at < 60 * 86400000) exclude.add(id);
+  for (const [id, until] of Object.entries(state.snoozed)) if (until > now) exclude.add(id);
+  const evidence = {};
+  for (const tag of Object.keys(TAGS)) {
+    const e = evidenceOf(tag);
+    if (e.save || e.went) evidence[tag] = e;
+  }
+  // Departure ideas still use the app's own ranking of nearby places.
+  const places = origin ? data.places().filter(i => available(i) && miles(origin, i) < 15)
+    .map(i => ({ i, s: score(i, null, origin) })).sort((a, b) => b.s - a.s).slice(0, 120)
+    .map(({ i, s }) => ({ id: i.id, name: i.name, lat: i.lat, lng: i.lng, rank: Math.round(s * 10),
+      reason: reason(i, origin) || 'A place you might enjoy', lateNight: i.tags.includes('nightlife'), start: 0,
+      rejected: false, snoozeUntil: state.snoozed[i.id] || 0 })) : [];
+  return {
+    daily: state.settings.daily,
     departure: { enabled: state.settings.departure },
     quiet: state.settings.quiet,
-    max: 1, busy: busySoon(), places, picks,
-  }));
-}, 1500);
+    location: origin ? { lat: origin.lat, lng: origin.lng } : null,
+    weights: state.taste.weights,
+    distance: state.taste.distance,
+    exclude: [...exclude].slice(-500),
+    evidence,
+    max: 1, busy: busySoon(), places,
+  };
+}
+
+function pushSnapshotNow() {
+  phone.snapshot(JSON.stringify(buildSnapshot()));
+}
+
+const pushSnapshot = debounce(pushSnapshotNow, 1500);
 
 onSave(pushSnapshot);
 

@@ -17,7 +17,7 @@ function fresh() {
     history: [],   // { at, type, id, tags }
     location: null, // { lat, lng, name, mode: 'live' | 'manual', at }
     settings: {
-      weekly: { enabled: true, day: 5, time: '17:00' },
+      daily: { enabled: true, time: '16:30' },
       departure: false,
       quiet: { start: '22:00', end: '08:00' },
     },
@@ -48,7 +48,13 @@ function migrate() {
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return Object.assign(fresh(), JSON.parse(raw));
+    if (raw) {
+      const s = Object.assign(fresh(), JSON.parse(raw));
+      // 0.9–0.10 had a weekly digest; 0.11 sends one pick a day instead.
+      if (!s.settings.daily) s.settings.daily = { enabled: s.settings.weekly?.enabled !== false, time: '16:30' };
+      delete s.settings.weekly;
+      return s;
+    }
   } catch { /* fall through */ }
   return migrate();
 }

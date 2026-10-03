@@ -49,6 +49,17 @@ final class AssetServer {
 
     private WebResourceResponse api(String path, Uri url) {
         if (path.equals("/api/photo")) return photo(url);
+        if (path.equals("/api/pick")) {
+            JSONObject pick;
+            try {
+                pick = DailyPick.today(context, "1".equals(url.getQueryParameter("another")), "1".equals(url.getQueryParameter("fresh")));
+            } catch (Exception e) {
+                pick = error("Today's pick isn't ready. Try again in a moment.");
+            }
+            return new WebResourceResponse("application/json", "UTF-8", 200, "OK",
+                    Collections.singletonMap("Cache-Control", "no-store"),
+                    new ByteArrayInputStream(pick.toString().getBytes(StandardCharsets.UTF_8)));
+        }
         JSONObject result;
         try {
             if (path.equals("/api/places")) {
