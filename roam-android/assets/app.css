@@ -334,3 +334,8 @@ main[data-view="place"] ~ .toast { bottom: 96px; }
 .alt:last-child { border-bottom: 0; }
 .browse { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 28px; padding: 16px; border-radius: 18px; border: 1px dashed #CFC6B6; color: var(--ink); font-weight: 800; text-decoration: none; }
 .tiles-title { margin-top: 28px; }
+
+.offer { margin-top: 18px; display: flex; gap: 12px; padding: 16px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); }
+.offer-icon { flex: none; width: 38px; height: 38px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: #F3DDD3; color: var(--accent-ink); }
+.offer p { margin: 4px 0 10px; font-size: 14px; color: var(--muted); }
+.offer-actions { display: flex; gap: 14px; align-items: center; }

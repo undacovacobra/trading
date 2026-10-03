@@ -4,7 +4,7 @@ import java.time.LocalTime;
 
 /** Rules every background suggestion must pass: daily limit, quiet hours, calendar, spacing. */
 public final class NudgePolicy {
-    static final long MIN_SPACING_MS = 15 * 60_000L;
+    static final long MIN_SPACING_MS = 90 * 60_000L;
 
     private NudgePolicy() {}
 

@@ -1,4 +1,4 @@
-# Roam for Android (0.11.0)
+# Roam for Android (0.12.0)
 
 A travel companion that picks one great thing a day near you, held to a strict quality bar, and learns what you like from what
 you save, skip and go to. A small native Android shell (location, notifications, caching, API calls)
@@ -68,8 +68,15 @@ serves what it already has, or OpenStreetMap.
 
 - **Daily pick** (on by default, 4:30 pm, changeable): today's pick with its photo, "Into it" and
   "Not for me" buttons. Inexact alarm; no tracking needed. Replaces 0.9–0.10's weekly digest.
-- **"Heading out?"** (off by default): the departure-aware location service from 0.8, battery
-  friendly, at most one suggestion a day, respecting quiet hours.
+- **"Heading out?"** (offered once on Today, off until you turn it on): when you leave somewhere
+  you spent 10+ minutes, Roam looks at what's close to where you are now (about a 15 minute walk,
+  or 10–15 minutes' drive if you're moving fast) and sends one notification with a photo only if
+  a place clears the daily pick's bar, is open for at least 45 more minutes, matches something
+  you've shown you like, and isn't the same kind of place you just left. Today's pick wins when
+  it's close. Nothing outdoors after dark or in bad weather. Never when leaving home (learned from
+  three nights in the same spot), never the same place twice in three weeks, twice a day at most,
+  90 minutes apart, not in quiet hours or calendar events. Location runs in low-power mode while
+  you stay put; the search reuses cached results nearby, so most departures cost no Google call.
 
 ## Building
 

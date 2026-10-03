@@ -77,6 +77,22 @@ public class DepartureDetectorTest {
     }
 
     @Test
+    public void leavingAfterAQuietEveningStillCounts() {
+        // Dinner, then hours with no fixes because the phone didn't move, then walking away.
+        DepartureDetector d = settled();
+        assertFalse(d.update(north(400), LNG, 20, 5 * 60 * MIN));
+        assertTrue(d.update(north(450), LNG, 20, 5 * 60 * MIN + 31_000));
+        assertEquals("about five hours there", 5 * 60 * MIN, d.departedStayMs(), 2 * MIN);
+    }
+
+    @Test
+    public void wakingUpWhereYouSleptKeepsThePlace() {
+        DepartureDetector d = settled();
+        assertFalse(d.update(LAT, LNG, 20, 9 * 60 * MIN));
+        assertTrue(d.isSettled());
+    }
+
+    @Test
     public void metersIsAboutRight() {
         assertEquals(1000, DepartureDetector.meters(LAT, LNG, north(1000), LNG), 2);
     }

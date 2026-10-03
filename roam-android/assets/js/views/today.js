@@ -2,6 +2,7 @@
 // Browsing everything nearby lives in Explore.
 
 import { state, save } from '../store.js';
+import { phone, isPhone } from '../native.js';
 import { esc, icon, nowLabel, photo, watchImages, toast, miles } from '../util.js';
 import * as data from '../data.js';
 import { skyIcon } from '../context.js';
@@ -68,6 +69,7 @@ export function render(root, _param, app) {
   root.innerHTML = `${header}
     ${pickCard()}
     ${pick?.alternates?.length && !pick.error ? `<section class="alts"><h3>If not that</h3>${pick.alternates.map(alt).join('')}</section>` : ''}
+    ${headingOutCard()}
     ${todays.length ? `<section><h3>Today's plans</h3>${todays.map(p => plannedRow(p, origin, P.today())).join('')}</section>` : ''}
     ${nextTrip ? tripBanner(nextTrip) : ''}
     <a class="browse" href="#/explore">Browse everything nearby ${icon('arrow', 18)}</a>`;
@@ -127,6 +129,17 @@ function alt(a) {
   </a>`;
 }
 
+/** One-time offer to turn on "Heading out?" ideas; it needs location while Roam is closed. */
+function headingOutCard() {
+  if (state.settings.departure || state.settings.headingOutAsked || !pick?.item) return '';
+  return `<section class="offer">
+    <span class="offer-icon">${icon('go', 20)}</span>
+    <div><strong>Want a nudge when you head out?</strong>
+    <p>When you leave somewhere you've spent a while, Roam checks what's close by and only speaks up if something clears the same bar as this pick. Twice a day at most, never when you leave home.</p>
+    <div class="offer-actions"><button type="button" class="pill dark" data-headout="on">Turn it on</button><button type="button" class="text-link quiet" data-headout="no">No thanks</button></div></div>
+  </section>`;
+}
+
 function tripBanner(t) {
   const until = P.daysBetween(P.today(), t.start);
   const n = P.range(t.start, t.end).reduce((sum, d) => sum + P.plannedOn(d).length, 0);
@@ -139,6 +152,18 @@ function bind(root, app) {
     if (act(e, app)) return;
     if (e.target.closest('[data-locate]')) { app.locate(); return; }
     if (e.target.closest('[data-retry]')) { refreshPick(app); return; }
+    const ho = e.target.closest('[data-headout]');
+    if (ho) {
+      state.settings.headingOutAsked = true;
+      if (ho.dataset.headout === 'on') {
+        state.settings.departure = true;
+        if (isPhone) phone.request('tracking');
+        toast('On. Roam will only speak up when it’s worth it.');
+      }
+      save();
+      app.rerender();
+      return;
+    }
     const item = pick?.item && (data.get(pick.item.id) || pick.item);
     if (!item) return;
     if (e.target.closest('[data-into]')) {

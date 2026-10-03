@@ -43,6 +43,7 @@ final class WebBridge {
             s.put("batteryUnrestricted", pm.isIgnoringBatteryOptimizations(c.getPackageName()));
             s.put("notifications", NativeNotifications.enabled(c));
             s.put("replies", NativeStore.replies(c));
+            s.put("nudged", HeadingOut.nudged(c));
             s.put("location", NativeStore.location(c));
             s.put("keys", Keys.status(c));
             s.put("calendar", DeviceCalendar.connected(c));

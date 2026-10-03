@@ -6,15 +6,17 @@ package app.roam.companion;
  * A place qualifies after ten minutes of accurate fixes inside a 100 m (+ accuracy) circle.
  * Leaving is confirmed by accurate fixes outside a 200 m (+ accuracy) buffer for 30 seconds.
  *
- * Unlike the original detector, a long silence between fixes does not throw the qualified place
- * away: the companion deliberately asks for few updates while you sit still, so a gap means
- * "nothing moved". Only gaps over two hours (location off, phone in a drawer) start fresh.
+ * A long silence between fixes does not throw the qualified place away: the companion
+ * deliberately asks for few updates while you sit still, so a gap means "nothing moved". After a
+ * silence over two hours, a fix far away (or after 16 hours) starts fresh instead.
  */
 public final class DepartureDetector {
     static final float MAX_ACCURACY_M = 60f;
     static final long QUALIFY_MS = 10 * 60_000L;
     static final long CONFIRM_MS = 30_000L;
     static final long STALE_GAP_MS = 2 * 3_600_000L;
+    static final long MAX_SILENCE_MS = 16 * 3_600_000L;
+    static final double JUST_LEFT_M = 2000;
     static final double STAY_RADIUS_M = 100;
     static final double LEAVE_RADIUS_M = 200;
 
@@ -27,6 +29,7 @@ public final class DepartureDetector {
     private long outside = -1;
     private double leftLat = Double.NaN;
     private double leftLng = Double.NaN;
+    private long leftStay;
 
     /** Great-circle distance in metres. */
     public static double meters(double lat1, double lng1, double lat2, double lng2) {
@@ -47,6 +50,8 @@ public final class DepartureDetector {
     public double anchorLng() { return anchorLng; }
     public double departedLat() { return leftLat; }
     public double departedLng() { return leftLng; }
+    /** How long you stayed at the place you just left, in ms. */
+    public long departedStayMs() { return leftStay; }
 
     /** Distance from the current anchor, or NaN when there is none. */
     public double distanceFromAnchor(double lat, double lng) {
@@ -70,8 +75,15 @@ public final class DepartureDetector {
         last = at;
         double d = meters(anchorLat, anchorLng, lat, lng);
         if (gap > STALE_GAP_MS) {
-            reset(lat, lng, at);
-            return false;
+            // A still phone gets no fixes for hours (resting mode only reports movement), so a long
+            // silence ending here means you were here all along, and one ending just down the road
+            // means you've just left. Far away, or after most of a day, it's a fresh start.
+            boolean stillHere = d <= STAY_RADIUS_M + accuracy;
+            boolean justLeft = d <= JUST_LEFT_M && gap <= MAX_SILENCE_MS;
+            if (!stillHere && !justLeft) {
+                reset(lat, lng, at);
+                return false;
+            }
         }
         if (d <= STAY_RADIUS_M + accuracy) {
             outside = -1;
@@ -94,6 +106,7 @@ public final class DepartureDetector {
         if (at - outside < CONFIRM_MS) return false;
         leftLat = anchorLat;
         leftLng = anchorLng;
+        leftStay = outside - arrived;
         reset(lat, lng, at);
         return true;
     }

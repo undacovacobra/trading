@@ -5,7 +5,7 @@ import { phone, status } from './native.js';
 import { $, $$, hydrateIcons, toast, miles, debounce } from './util.js';
 import * as data from './data.js';
 import { context } from './context.js';
-import { decay, pass, toggleSave, score, available, reason, TAGS, evidence as evidenceOf } from './taste.js';
+import { decay, pass, toggleSave, TAGS, evidence as evidenceOf } from './taste.js';
 import * as today from './views/today.js';
 import * as explore from './views/explore.js';
 import * as saved from './views/saved.js';
@@ -134,6 +134,7 @@ async function refresh(force = false, rerender = true) {
 window.roamNativeRefresh = () => {
   const s = status();
   let changed = false;
+  for (const n of s.nudged || []) if (n.item && !data.get(n.id)) data.remember(n.item);
   for (const r of s.replies || []) {
     const item = data.get(r.placeId);
     if (item) {
@@ -148,7 +149,11 @@ window.roamNativeRefresh = () => {
 };
 
 window.roamNativeCalendarReady = () => { toast('Calendar connected.'); route(true); pushSnapshot(); };
-window.roamNativeOpen = id => { if (id && data.get(id)) app.go('#/place/' + encodeURIComponent(id)); };
+window.roamNativeOpen = id => {
+  // A "Heading out?" idea may be a place the app hasn't loaded; the phone keeps a copy.
+  if (id && !data.get(id)) { const n = (status().nudged || []).find(x => x.id === id); if (n?.item) data.remember(n.item); }
+  if (id && data.get(id)) app.go('#/place/' + encodeURIComponent(id));
+};
 window.roamNativeView = view => { if (view === 'pick') { app.go('#/today'); window.scrollTo(0, 0); } };
 window.roamNativeShare = text => { app.go('#/explore'); setTimeout(() => explore.searchFor?.(text, app), 50); };
 
@@ -164,12 +169,6 @@ function buildSnapshot() {
     const e = evidenceOf(tag);
     if (e.save || e.went) evidence[tag] = e;
   }
-  // Departure ideas still use the app's own ranking of nearby places.
-  const places = origin ? data.places().filter(i => available(i) && miles(origin, i) < 15)
-    .map(i => ({ i, s: score(i, null, origin) })).sort((a, b) => b.s - a.s).slice(0, 120)
-    .map(({ i, s }) => ({ id: i.id, name: i.name, lat: i.lat, lng: i.lng, rank: Math.round(s * 10),
-      reason: reason(i, origin) || 'A place you might enjoy', lateNight: i.tags.includes('nightlife'), start: 0,
-      rejected: false, snoozeUntil: state.snoozed[i.id] || 0 })) : [];
   return {
     daily: state.settings.daily,
     departure: { enabled: state.settings.departure },
@@ -179,7 +178,7 @@ function buildSnapshot() {
     distance: state.taste.distance,
     exclude: [...exclude].slice(-500),
     evidence,
-    max: 1, busy: busySoon(), places,
+    max: 2, busy: busySoon(),
   };
 }
 

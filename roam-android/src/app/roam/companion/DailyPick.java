@@ -212,7 +212,7 @@ public final class DailyPick extends BroadcastReceiver {
         }
     }
 
-    private static Bitmap picture(Context c, JSONObject item) {
+    static Bitmap picture(Context c, JSONObject item) {
         try {
             byte[] bytes = null;
             JSONArray photos = item.optJSONArray("photos");

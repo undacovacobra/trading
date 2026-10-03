@@ -145,8 +145,8 @@ function usage(label, used = 0, budget = 900) {
 }
 
 function departureNote(s) {
-  if (!state.settings.departure) return 'When you leave somewhere, at most once a day';
-  if (s.tracking) return 'On · watching for when you head out';
+  if (!state.settings.departure) return 'When you leave somewhere you spent a while and something great is close by. Twice a day at most';
+  if (s.tracking) return 'On · only when something nearby clears the bar';
   if (!s.precise) return 'Needs precise location permission';
   return 'Starts when Roam is open';
 }

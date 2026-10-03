@@ -289,6 +289,84 @@ final class Curator {
         return out.size() > n ? new ArrayList<JSONObject>(out.subList(0, n)) : out;
     }
 
+    // ---- Right after you leave somewhere ------------------------------------------------------
+
+    static final double WALK_REACH_M = 1300;   // about a 15 minute walk
+    static final double DRIVE_REACH_M = 8000;  // about a 10-15 minute drive
+    static final double AWAY_FROM_LEFT_M = 150;
+
+    /** The kind of place you were just at (the closest known place within 75 m), or null. */
+    static String kindNear(JSONArray places, JSONObject at) {
+        String kind = null;
+        double best = 75;
+        for (int i = 0; places != null && i < places.length(); i++) {
+            JSONObject p = places.optJSONObject(i);
+            if (p == null) continue;
+            double d = meters(at, p);
+            if (d < best) { best = d; kind = kindOf(p); }
+        }
+        return kind;
+    }
+
+    /**
+     * What's worth a stop right now, close to where you are, after leaving `left`. Stricter than
+     * the daily pick: it must already be open (for at least 45 more minutes), close by for how
+     * you're moving, something you've shown you like, and not the same kind of place you just left.
+     * `favorId` (today's pick) wins if it's close and open.
+     */
+    static List<JSONObject> afterLeaving(JSONArray places, JSONObject weights, JSONObject here, JSONObject left,
+                                         Set<String> exclude, Moment m, boolean driving, String favorId, int n)
+            throws JSONException {
+        Map<String, Integer> counts = nameCounts(places);
+        String leftKind = left == null ? null : kindNear(places, left);
+        long now = m.at.toInstant().toEpochMilli();
+        boolean dark = m.sunset > 0 ? now > m.sunset - 20 * 60_000L : m.part.equals("late");
+        double reach = driving ? DRIVE_REACH_M : WALK_REACH_M;
+        List<JSONObject> out = new ArrayList<JSONObject>();
+        for (int i = 0; i < places.length(); i++) {
+            JSONObject p = places.optJSONObject(i);
+            if (p == null || exclude.contains(p.optString("id")) || !worthIt(p, counts)) continue;
+            double d = meters(here, p);
+            if (!(d <= reach)) continue;
+            if (left != null && meters(left, p) < AWAY_FROM_LEFT_M) continue;
+            boolean favored = p.optString("id").equals(favorId);
+            if (!favored && leftKind != null && leftKind.equals(kindOf(p))) continue;
+            JSONArray tags = p.optJSONArray("tags");
+            boolean outdoor = false;
+            for (int t = 0; tags != null && t < tags.length(); t++) outdoor |= OUTDOOR.contains(tags.optString(t));
+            if (outdoor && (dark || m.badWeather)) continue;
+            int open = openFor(p, m.at);
+            if (open == 0 || (open > 0 && open < 45) || (open < 0 && !outdoor)) continue;
+            double boost = 0;
+            for (int t = 0; tags != null && t < tags.length(); t++) boost += m.boost(tags.optString(t));
+            if (boost <= -2) continue;  // bars at breakfast time, trails at midnight
+            double t = taste(tags, weights);
+            boolean best = bestOfKind(p, places, counts);
+            boolean gem = hiddenGem(p);
+            // "You'd probably enjoy it": real evidence you like this kind, or a standout you don't dislike.
+            if (!favored && !(t >= 0.8 || (t >= 0 && (best || gem)))) continue;
+            double s = 1.6 * t + (bayes(p) - 4.3) * 3 + Math.max(-2, Math.min(2.5, boost)) - d / (driving ? 4000 : 600);
+            if (best) { s += 1.0; p.put("_best", true); }
+            if (gem) { s += 0.6; p.put("_gem", true); }
+            if (favored) s += 100;  // already judged the best thing today
+            out.add(p.put("_score", s));
+        }
+        Collections.sort(out, new Comparator<JSONObject>() {
+            @Override
+            public int compare(JSONObject a, JSONObject b) {
+                return Double.compare(b.optDouble("_score"), a.optDouble("_score"));
+            }
+        });
+        return out.size() > n ? new ArrayList<JSONObject>(out.subList(0, n)) : out;
+    }
+
+    /** "6 min walk" / "12 min drive", the same estimate the pick card uses. */
+    static String travel(double meters, boolean driving) {
+        double miles = meters / MI;
+        if (!driving && miles <= 1.2) return Math.max(2, Math.round(miles * 20)) + " min walk";
+        return Math.max(3, Math.round(miles * 2 + 3)) + " min drive";
+    }
+
     static double variety(String kind, List<String> recent) {
         for (int i = 0; i < recent.size() && i < 5; i++) {
             if (recent.get(i).equals(kind)) return i < 2 ? -2.5 : -1;

@@ -27,8 +27,8 @@ public class PoliciesTest {
         assertFalse("daily limit", NudgePolicy.allowed(3, 3, false, false, 0, now));
         assertFalse("quiet", NudgePolicy.allowed(3, 0, true, false, 0, now));
         assertFalse("busy", NudgePolicy.allowed(3, 0, false, true, 0, now));
-        assertFalse("15 minute spacing", NudgePolicy.allowed(3, 0, false, false, now - 10 * 60_000L, now));
-        assertTrue(NudgePolicy.allowed(3, 0, false, false, now - 16 * 60_000L, now));
+        assertFalse("90 minute spacing", NudgePolicy.allowed(3, 0, false, false, now - 80 * 60_000L, now));
+        assertTrue(NudgePolicy.allowed(3, 0, false, false, now - 91 * 60_000L, now));
     }
 
     @Test

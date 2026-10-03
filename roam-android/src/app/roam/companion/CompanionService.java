@@ -1,7 +1,5 @@
 package app.roam.companion;
 
-import java.time.ZonedDateTime;
-import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,8 +19,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 /**
  * The departure-aware companion. Runs as a location foreground service while Roam is "on",
@@ -134,40 +130,15 @@ public final class CompanionService extends Service implements LocationListener 
     private void considerDeparture(final Location fix) {
         final double leftLat = detector.departedLat();
         final double leftLng = detector.departedLng();
-        // Calendar reads and JSON work happen off the main thread.
+        final long stay = detector.departedStayMs();
+        final float speed = fix.hasSpeed() ? fix.getSpeed() : 0f;
+        // Network, calendar and JSON work happen off the main thread.
         background.execute(new Runnable() {
             @Override
             public void run() {
-                suggestAfterDeparture(fix.getLatitude(), fix.getLongitude(), leftLat, leftLng);
+                HeadingOut.consider(CompanionService.this, fix.getLatitude(), fix.getLongitude(), speed, leftLat, leftLng, stay);
             }
         });
-    }
-
-    private void suggestAfterDeparture(double lat, double lng, double leftLat, double leftLng) {
-        JSONObject snapshot = NativeStore.snapshot(this);
-        JSONObject departure = snapshot.optJSONObject("departure");
-        if (departure == null || !departure.optBoolean("enabled")) return;
-        long now = System.currentTimeMillis();
-        ZonedDateTime local = ZonedDateTime.now();
-        JSONObject quiet = snapshot.optJSONObject("quiet");
-        boolean isQuiet = quiet != null && NudgePolicy.quiet(quiet.optString("start"), quiet.optString("end"), local.toLocalTime());
-        boolean busy = Suggestions.busyIn(snapshot.optJSONArray("busy"), now);
-        if (!NudgePolicy.allowed(snapshot.optInt("max", 1), NativeStore.sentToday(this), isQuiet, busy,
-                NativeStore.prefs(this).getLong("lastNudge", 0), now)) {
-            return;
-        }
-        JSONArray candidates = Suggestions.departureCandidates(snapshot);
-        JSONObject best = Suggestions.bestAfterDeparture(snapshot, candidates, NativeStore.replies(this),
-                lat, lng, leftLat, leftLng, now, local);
-        if (best == null) return;
-        double meters = DepartureDetector.meters(lat, lng, best.optDouble("lat"), best.optDouble("lng"));
-        String body = "Heading out? " + best.optString("reason", "A place you might enjoy") + " · about "
-                + Units.distance(meters, Locale.getDefault()) + " away. Check hours and the route before going.";
-        String id = best.optString("id");
-        if (NativeNotifications.suggestion(this, id, best.optString("name"), body)) {
-            NativeStore.recordDelivery(this, now);
-            NativeStore.reply(this, id, "suggestion", "");
-        }
     }
 
     @Override

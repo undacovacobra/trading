@@ -34,5 +34,10 @@ public final class ReplyReceiver extends BroadcastReceiver {
         }
         NativeStore.reply(c, placeId, feeling, note);
         NativeNotifications.manager(c).cancel(placeId.hashCode());
+        // The daily pick's notification has its own id.
+        org.json.JSONObject pick = Json.object(NativeStore.prefs(c).getString("pick:" + java.time.LocalDate.now(), "{}"));
+        if (pick.optJSONObject("item") != null && placeId.equals(pick.optJSONObject("item").optString("id"))) {
+            NativeNotifications.manager(c).cancel(DailyPick.NOTIFICATION_ID);
+        }
     }
 }
