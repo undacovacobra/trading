@@ -19,7 +19,7 @@ import org.json.JSONObject;
 
 /** window.RoamAndroid. Every method validates its input; anything touching the UI hops to the main thread. */
 final class WebBridge {
-    private static final List<String> REQUESTS = Arrays.asList("tracking", "current", "notifications");
+    private static final List<String> REQUESTS = Arrays.asList("tracking", "current", "notifications", "calendar");
     private final MainActivity activity;
 
     WebBridge(MainActivity activity) {
@@ -45,6 +45,8 @@ final class WebBridge {
             s.put("replies", NativeStore.replies(c));
             s.put("location", NativeStore.location(c));
             s.put("keys", Keys.status(c));
+            s.put("calendar", DeviceCalendar.connected(c));
+            s.put("calendarPermission", DeviceCalendar.permitted(c));
             s.put("weeklyLast", Json.object(NativeStore.prefs(c).getString("weeklyLast", "{}")));
         } catch (JSONException ignored) {
             // return what we have
@@ -79,6 +81,17 @@ final class WebBridge {
                 activity.enqueueTask(what);
             }
         });
+    }
+
+    /** Your phone calendar between two times (ms), read only. */
+    @JavascriptInterface
+    public String calendar(double from, double to) {
+        return DeviceCalendar.read(activity, (long) from, (long) to).toString();
+    }
+
+    @JavascriptInterface
+    public void calendarOff(boolean off) {
+        NativeStore.prefs(activity).edit().putBoolean("calendar", !off).apply();
     }
 
     @JavascriptInterface

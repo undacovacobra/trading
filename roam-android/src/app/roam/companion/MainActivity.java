@@ -264,7 +264,14 @@ public final class MainActivity extends Activity {
     }
 
     private void task(String task) {
-        if ("current".equals(task)) {
+        if ("calendar".equals(task)) {
+            if (!granted(Manifest.permission.READ_CALENDAR)) {
+                ask(task, Manifest.permission.READ_CALENDAR);
+                return;
+            }
+            NativeStore.prefs(this).edit().putBoolean("calendar", true).apply();
+            js("window.roamNativeCalendarReady&&window.roamNativeCalendarReady()");
+        } else if ("current".equals(task)) {
             if (!granted(Manifest.permission.ACCESS_COARSE_LOCATION) && !granted(Manifest.permission.ACCESS_FINE_LOCATION)) {
                 ask(task, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION);
                 return;

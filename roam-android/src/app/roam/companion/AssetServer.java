@@ -56,7 +56,10 @@ final class AssetServer {
             } else if (path.equals("/api/search")) {
                 result = Places.search(context, url.getQueryParameter("q"), num(url, "lat"), num(url, "lng"));
             } else if (path.equals("/api/events")) {
-                result = Events.fetch(context, num(url, "lat"), num(url, "lng"));
+                String from = url.getQueryParameter("from");
+                String to = url.getQueryParameter("to");
+                boolean range = from != null && to != null && from.matches("\\d{4}-\\d{2}-\\d{2}") && to.matches("\\d{4}-\\d{2}-\\d{2}");
+                result = Events.fetch(context, num(url, "lat"), num(url, "lng"), range ? from : null, range ? to : null);
             } else if (path.equals("/api/weather")) {
                 result = Weather.fetch(context, num(url, "lat"), num(url, "lng"));
             } else if (path.equals("/api/geocode")) {

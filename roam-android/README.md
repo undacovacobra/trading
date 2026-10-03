@@ -1,4 +1,4 @@
-# Roam for Android (0.9.2)
+# Roam for Android (0.10.0)
 
 A travel companion that shows one great thing to do right now, and learns what you like from what
 you save, skip and go to. A small native Android shell (location, notifications, caching, API calls)
@@ -12,6 +12,10 @@ hosts a lean web interface in `assets/`.
 - **Place / event**: photos, "Why it's for you" (built only from what Roam knows), hours, rating,
   "Pair it with", one-tap feedback (Too far, Not my vibe, Been there, Wrong time), Directions, I went.
 - **Explore**: search ("tacos", "climbing gym") or browse by kind; sort by best, nearest, open now.
+- **Plans**: a month calendar with trips, plans and busy times from your phone calendar (read
+  only, any synced calendar). Tap a day for what's on, events that day and ideas to add. Trips
+  have a destination and dates; the trip page shows ideas there and events during your dates, and
+  you can put things on specific days. Every place has "Plan it", every event "Add to <day>".
 - **Saved**: Want to go / Been.
 - **You**: what Roam has learned (and "Bring back" for things it's showing less), weekly picks
   day and time, "Heading out?" ideas, quiet hours, location, API keys and usage, backup and restore.

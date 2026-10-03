@@ -24,18 +24,33 @@ final class Events {
     private Events() {}
 
     static JSONObject fetch(Context c, double lat, double lng) {
+        return fetch(c, lat, lng, null, null);
+    }
+
+    /** Events between two dates ("2026-11-02", inclusive), or the next three weeks when null. */
+    static JSONObject fetch(Context c, double lat, double lng, String from, String to) {
         try {
             if (!Keys.has(c, Keys.TICKETMASTER)) return new JSONObject().put("events", new JSONArray()).put("needsKey", true);
             FileCache cache = new FileCache(c, "events", 4_000_000);
-            String cell = String.format(Locale.US, "%.1f,%.1f", lat, lng);
+            String cell = String.format(Locale.US, "%.1f,%.1f", lat, lng) + (from == null ? "" : "|" + from + "|" + to);
             String cached = cache.getText(FileCache.key("tm:" + cell), CACHE_MS);
             if (cached != null) return new JSONObject(cached);
 
             DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC);
             Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+            Instant begin = now;
+            Instant finish = now.plus(DAYS, ChronoUnit.DAYS);
+            if (from != null && to != null) {
+                java.time.LocalDate a = java.time.LocalDate.parse(from);
+                java.time.LocalDate b = java.time.LocalDate.parse(to);
+                if (b.isBefore(a) || a.plusDays(60).isBefore(b)) throw new java.io.IOException("Bad range");
+                Instant s0 = a.atStartOfDay(ZoneOffset.UTC).minus(14, ChronoUnit.HOURS).toInstant();
+                begin = s0.isAfter(now) ? s0 : now;
+                finish = b.plusDays(1).atStartOfDay(ZoneOffset.UTC).plus(14, ChronoUnit.HOURS).toInstant();
+            }
             String url = "https://app.ticketmaster.com/discovery/v2/events.json?size=100&sort=date,asc&radius=40&unit=miles"
                     + "&latlong=" + String.format(Locale.US, "%.4f,%.4f", lat, lng)
-                    + "&startDateTime=" + f.format(now) + "&endDateTime=" + f.format(now.plus(DAYS, ChronoUnit.DAYS))
+                    + "&startDateTime=" + f.format(begin) + "&endDateTime=" + f.format(finish)
                     + "&apikey=" + Keys.get(c, Keys.TICKETMASTER);
             Http.Response r = Http.exchange("GET", url, java.util.Collections.singletonMap("Accept", "application/json"),
                     null, null, 4_000_000);

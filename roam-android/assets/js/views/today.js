@@ -6,7 +6,8 @@ import { status } from '../native.js';
 import * as data from '../data.js';
 import { skyIcon } from '../context.js';
 import { score, available, diversify, shown, openState, tasteOf } from '../taste.js';
-import { hero, row, eventCard, skeleton, act } from './cards.js';
+import { hero, row, eventCard, skeleton, act, plannedRow } from './cards.js';
+import * as P from '../plans.js';
 
 const FILTERS = [
   ['now', 'Right now', null],
@@ -68,6 +69,8 @@ export function render(root, _param, app) {
   const picks = weekly?.at && Date.now() - weekly.at < 3 * 86400000 ? (weekly.ids || []).map(data.get).filter(Boolean) : [];
   const info = data.placesInfo();
   const evInfo = data.eventsInfo();
+  const todays = P.plannedOn(P.today()).map(data.get).filter(Boolean);
+  const nextTrip = P.upcomingTrips().find(t => P.daysBetween(P.today(), t.start) <= 14);
 
   root.innerHTML = `${header}
     <h1 class="headline">${esc(ctx.headline)}</h1>
@@ -75,6 +78,8 @@ export function render(root, _param, app) {
     <div class="filters" role="tablist" aria-label="What are you in the mood for?">
       ${FILTERS.map(([k, label]) => `<button type="button" role="tab" class="filter ${k === filter ? 'on' : ''}" aria-selected="${k === filter}" data-filter="${k}">${label}</button>`).join('')}
     </div>
+    ${todays.length ? `<section><h3>Today's plans</h3>${todays.map(p => plannedRow(p, origin, P.today())).join('')}</section>` : ''}
+    ${nextTrip ? tripBanner(nextTrip) : ''}
     ${picks.length ? `<section id="picks"><h3>This week's picks</h3>${picks.map(p => row(p, origin, ctx)).join('')}</section>` : ''}
     ${upcoming.length ? `<section><div class="section-head"><h3>Coming up near you</h3></div><div class="rail">${upcoming.map(e => eventCard(e, origin)).join('')}</div></section>`
       : evInfo.needsKey ? `<section class="hint"><p>${icon('ticket', 18)} See concerts, games and shows near you by adding a free Ticketmaster key.</p><a href="#/you/keys">Add key</a></section>` : ''}
@@ -87,6 +92,13 @@ export function render(root, _param, app) {
     <p class="footnote">${loading ? 'Looking around…' : info.at ? `Checked ${new Date(info.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ${info.source === 'google' ? 'Places & photos from Google' : 'Map data © OpenStreetMap contributors'}` : ''}</p>`;
   bind(root, app);
   watchImages(root);
+}
+
+function tripBanner(t) {
+  const until = P.daysBetween(P.today(), t.start);
+  const n = P.range(t.start, t.end).reduce((sum, d) => sum + P.plannedOn(d).length, 0);
+  const when = until <= 0 ? 'You’re on it' : until === 1 ? 'Tomorrow' : `In ${until} days`;
+  return `<a class="hint trip-banner" href="#/plans/trip/${encodeURIComponent(t.id)}"><p>${icon('calendar', 18)}<span><strong>${esc(t.name)}</strong> · ${when}. ${n ? `${n} planned.` : 'See ideas and events for your dates.'}</span></p><span class="go">${icon('arrow', 18)}</span></a>`;
 }
 
 function emptyPool(total) {

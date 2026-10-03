@@ -12,10 +12,12 @@ import * as saved from './views/saved.js';
 import * as you from './views/you.js';
 import * as place from './views/place.js';
 import * as welcome from './views/welcome.js';
+import * as plansView from './views/plans.js';
+import { busySoon } from './plans.js';
 
 window.toast = toast;
 
-const views = { today, explore, saved, you, place, welcome };
+const views = { today, explore, plans: plansView, saved, you, place, welcome };
 const scrolls = {};
 let current = null;
 let loading = false;
@@ -61,7 +63,7 @@ window.addEventListener('hashchange', () => route());
 /** Android's back button: close what's open, else go to Today, else leave the app. */
 window.roamBack = () => {
   const { name } = parse();
-  if (name === 'place' || (name === 'explore' && parse().param)) { history.back(); return true; }
+  if (name === 'place' || ((name === 'explore' || name === 'plans') && parse().param)) { history.back(); return true; }
   if (name !== 'today' && name !== 'welcome') { app.go('#/today'); return true; }
   return false;
 };
@@ -144,6 +146,7 @@ window.roamNativeRefresh = () => {
   if (changed) { save(); route(true); }
 };
 
+window.roamNativeCalendarReady = () => { toast('Calendar connected.'); route(true); pushSnapshot(); };
 window.roamNativeOpen = id => { if (id && data.get(id)) app.go('#/place/' + encodeURIComponent(id)); };
 window.roamNativeView = view => { if (view === 'picks') { app.go('#/today'); setTimeout(() => $('#picks')?.scrollIntoView({ behavior: 'smooth' }), 300); } };
 window.roamNativeShare = text => { app.go('#/explore'); setTimeout(() => explore.searchFor?.(text, app), 50); };
@@ -167,7 +170,7 @@ const pushSnapshot = debounce(() => {
     weekly: state.settings.weekly,
     departure: { enabled: state.settings.departure },
     quiet: state.settings.quiet,
-    max: 1, busy: [], places, picks,
+    max: 1, busy: busySoon(), places, picks,
   }));
 }, 1500);
 

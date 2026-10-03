@@ -5,6 +5,7 @@ import { phone } from '../native.js';
 import { esc, icon, photo, photoSrc, miles, distanceLabel, travelLabel, eventWhen, toast } from '../util.js';
 import { openState, reason, toggleSave, pass, went, compact } from '../taste.js';
 import * as data from '../data.js';
+import { plan, unplan, shortDay } from '../plans.js';
 
 export const link = item => `#/place/${encodeURIComponent(item.id)}`;
 
@@ -61,6 +62,29 @@ export function row(item, origin, ctx, note) {
   </div>`;
 }
 
+/** A row whose button puts the item on a day ("+ Sat"), or shows it's already there. */
+export function planRow(item, origin, date, label) {
+  const on = (state.plans[date] || []).includes(item.id);
+  return `<div class="row">
+    <a class="row-link" href="${link(item)}">
+      ${photo(item, 200, 'thumb')}
+      <span class="row-text"><strong>${esc(item.name)}</strong><span class="meta">${metaLine(item, origin)}</span></span>
+    </a>
+    <button type="button" class="pill small ${on ? 'outline on' : 'dark'}" data-act="${on ? 'unplan' : 'plan'}" data-id="${esc(item.id)}" data-date="${date}">${on ? `${icon('check', 16)}Planned` : `+ ${esc(label)}`}</button>
+  </div>`;
+}
+
+/** Something already planned for a day, with a remove button. */
+export function plannedRow(item, origin, date) {
+  return `<div class="row">
+    <a class="row-link" href="${link(item)}">
+      ${photo(item, 200, 'thumb')}
+      <span class="row-text"><strong>${esc(item.name)}</strong><span class="meta">${metaLine(item, origin)}</span></span>
+    </a>
+    <button type="button" class="round small plain" data-act="unplan" data-id="${esc(item.id)}" data-date="${date}" aria-label="Remove ${esc(item.name)} from this day">${icon('x', 18)}</button>
+  </div>`;
+}
+
 export function eventCard(item, origin) {
   const d = origin ? miles(origin, item) : NaN;
   return `<article class="event">
@@ -104,6 +128,14 @@ export function act(e, app) {
     const on = went(item);
     save();
     toast(on ? 'Nice. Roam will find more like it.' : 'Okay, unmarked.');
+    app.rerender();
+  } else if (what === 'plan') {
+    plan(b.dataset.date, item);
+    toast(`Planned for ${shortDay(b.dataset.date)}`);
+    app.rerender();
+  } else if (what === 'unplan') {
+    unplan(b.dataset.date, item.id);
+    toast('Removed from that day');
     app.rerender();
   } else if (what === 'go') {
     phone.directions(item.lat, item.lng);

@@ -5,6 +5,7 @@ import { esc, icon, photoSrc, miles, distanceLabel, travelLabel, eventWhen, watc
 import * as data from '../data.js';
 import { openState, reasonLong, opened, score, available, compact } from '../taste.js';
 import { saveButton, act, link } from './cards.js';
+import * as P from '../plans.js';
 
 export function render(root, id, app) {
   const item = data.get(id);
@@ -53,6 +54,8 @@ export function render(root, id, app) {
         ${isEvent ? eventFacts(item) : placeFacts(item, open)}
       </section>
 
+      ${planIt(item)}
+
       ${isEvent ? '' : pairing(item, origin, app)}
 
       <section class="feedback">
@@ -82,6 +85,28 @@ export function render(root, id, app) {
     if (act(e, app) && pass) { history.length > 1 ? history.back() : app.go('#/today'); }
   };
   watchImages(root);
+}
+
+/** "Plan it": put this on a day. Events go on their own date; places offer the next week and trip days. */
+function planIt(item) {
+  const on = P.whenPlanned(item.id).filter(d => d >= P.today());
+  if (item.type === 'event') {
+    const d = P.ymd(new Date(item.start));
+    const planned = on.includes(d);
+    return `<section class="plan-it"><h2>Plan it</h2><div class="chips">
+      <button type="button" class="chip-btn ${planned ? 'on' : ''}" data-act="${planned ? 'unplan' : 'plan'}" data-id="${esc(item.id)}" data-date="${d}">${planned ? `${icon('check', 16)}On your plans for ${esc(P.shortDay(d))}` : `Add to ${esc(P.shortDay(d))}`}</button>
+    </div></section>`;
+  }
+  const days = P.range(P.today(), P.addDays(P.today(), 6));
+  const trip = P.tripNear(item);
+  if (trip) for (const d of P.range(trip.start, trip.end)) if (!days.includes(d) && d >= P.today()) days.push(d);
+  return `<section class="plan-it"><h2>Plan it</h2>
+    ${trip ? `<p class="muted">Near your ${esc(trip.name)} (${esc(P.tripDates(trip))})</p>` : ''}
+    <div class="chips scroll">${days.slice(0, 21).map(d => {
+      const planned = on.includes(d);
+      const inTrip = trip && d >= trip.start && d <= trip.end;
+      return `<button type="button" class="chip-btn ${planned ? 'on' : ''} ${inTrip ? 'trip' : ''}" data-act="${planned ? 'unplan' : 'plan'}" data-id="${esc(item.id)}" data-date="${d}">${planned ? icon('check', 14) : ''}${esc(P.shortDay(d))}</button>`;
+    }).join('')}</div></section>`;
 }
 
 function placeFacts(item, open) {

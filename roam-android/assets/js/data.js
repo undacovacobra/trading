@@ -40,6 +40,22 @@ export async function loadPlaces(origin, force = false) {
   return data;
 }
 
+/** Places around somewhere else (a trip), without touching what Today is showing. */
+export async function loadPlacesFor(origin) {
+  const data = await getJSON(`/api/places?${q(origin)}`, 60000);
+  for (const p of data.places || []) catalog.set(p.id, { ...catalog.get(p.id), ...p });
+  persist();
+  return data;
+}
+
+/** Events near a place between two dates ("2026-11-02"), for trips. */
+export async function loadEventsBetween(origin, from, to) {
+  const data = await getJSON(`/api/events?${q(origin)}&from=${from}&to=${to}`);
+  for (const e of data.events || []) catalog.set(e.id, e);
+  persist();
+  return data;
+}
+
 export async function loadEvents(origin) {
   try {
     const data = await getJSON(`/api/events?${q(origin)}`);
