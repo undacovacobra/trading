@@ -75,9 +75,14 @@ async function setLocation(loc, { reload = true } = {}) {
   const prev = state.location;
   state.location = { ...loc, at: Date.now() };
   save();
-  if (!loc.name || loc.name === 'Near you') {
-    data.reverse(loc).then(name => {
-      if (name && state.location?.lat === loc.lat) { state.location.name = name; save(); route(true); }
+  // Name live locations in words: the town for the header, the street for "you're here".
+  if (loc.mode === 'live' && (!loc.address || !prev || miles(prev, loc) > 0.1)) {
+    data.reverse(loc).then(place => {
+      if (!place || state.location?.lat !== loc.lat) return;
+      state.location.name = place.name || state.location.name;
+      state.location.address = place.address || '';
+      save();
+      route(true);
     });
   }
   const moved = !prev || miles(prev, loc) > 1.5;
@@ -91,8 +96,8 @@ window.roamNativeFix = fix => {
     return;
   }
   if (state.location?.mode === 'manual') return;
-  const near = state.location && miles(state.location, fix) < 1;
-  setLocation({ lat: fix.lat, lng: fix.lng, name: near ? state.location.name : 'Near you', mode: 'live' });
+  const near = state.location && miles(state.location, fix) < 0.1;
+  setLocation({ lat: fix.lat, lng: fix.lng, name: state.location && miles(state.location, fix) < 1.5 ? state.location.name : 'Near you', address: near ? state.location.address : '', mode: 'live' });
 };
 
 // ---- Data -----------------------------------------------------------------------------------

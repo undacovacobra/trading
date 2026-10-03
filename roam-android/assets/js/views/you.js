@@ -53,7 +53,7 @@ export function render(root, section, app) {
     </section>
 
     <section class="card list">
-      <div class="setting"><span><strong>Location</strong><small>${esc(state.location ? `${state.location.name || 'Set'} · ${state.location.mode === 'manual' ? 'chosen place' : 'follows you'}` : 'Not set')}</small></span>
+      <div class="setting"><span><strong>Location</strong><small>${esc(state.location ? `${state.location.address || state.location.name || 'Finding your address…'} · ${state.location.mode === 'manual' ? 'chosen place' : 'follows you'}` : 'Not set')}</small></span>
         <a class="pill outline small" href="#/you/location">Change</a></div>
     </section>
 
@@ -161,6 +161,7 @@ function renderLocation(root, app) {
       <a class="round" href="#/you" aria-label="Back">${icon('back', 20)}</a>
       <h1>Where to?</h1>
     </header>
+    ${state.location ? `<div class="here">${icon('pin', 18)}<span><small>${state.location.mode === 'manual' ? 'Showing ideas around' : 'You’re at'}</small><strong>${esc(state.location.address || state.location.name || 'Finding your address…')}</strong></span></div>` : ''}
     <button type="button" class="pill dark wide" data-here>${icon('locate', 18)}Use where I am</button>
     <form class="search" data-find>
       ${icon('search', 20)}
@@ -180,7 +181,7 @@ function renderLocation(root, app) {
     const use = e.target.closest('[data-use]');
     if (use) {
       const p = places[Number(use.dataset.use)];
-      app.setLocation({ lat: p.lat, lng: p.lng, name: p.name.split(',').slice(0, 2).join(','), mode: 'manual' });
+      app.setLocation({ lat: p.lat, lng: p.lng, name: p.town || p.name.split(',')[0], address: p.name, mode: 'manual' });
       places = [];
       app.go('#/today');
     }

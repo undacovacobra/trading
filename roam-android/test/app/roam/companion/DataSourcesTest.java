@@ -138,6 +138,18 @@ public class DataSourcesTest {
     }
 
     @Test
+    public void addressesAreWordsNotCoordinates() throws Exception {
+        JSONObject a = new JSONObject("{\"house_number\":\"1770\",\"road\":\"13th Street\",\"city\":\"Boulder\","
+                + "\"state\":\"Colorado\",\"country\":\"United States\"}");
+        assertEquals("1770 13th Street", HomeSearch.street(a));
+        assertEquals("Boulder", HomeSearch.town(a));
+        assertEquals("1770 13th Street, Boulder, Colorado", HomeSearch.label(a, ""));
+        JSONObject town = new JSONObject("{\"town\":\"Golden\",\"state\":\"Colorado\"}");
+        assertEquals("Golden, Colorado", HomeSearch.label(town, ""));
+        assertEquals("Denver, Denver County, Colorado", HomeSearch.label(null, "Denver, Denver County, Colorado, United States"));
+    }
+
+    @Test
     public void weeklyAlarmLandsOnTheChosenDay() {
         ZonedDateTime thu = ZonedDateTime.of(2026, 10, 1, 9, 0, 0, 0, ZoneId.of("America/Denver"));
         ZonedDateTime next = WeeklyPicks.next(thu, 5, "17:00");

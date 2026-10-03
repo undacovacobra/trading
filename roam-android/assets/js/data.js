@@ -67,7 +67,8 @@ export async function search(text, origin) {
 }
 
 export const geocode = text => getJSON(`/api/geocode?q=${encodeURIComponent(text)}`).then(d => d.results || []);
-export const reverse = o => getJSON(`/api/reverse?${q(o)}`).then(d => d.name || '').catch(() => '');
+/** { name: 'Boulder', address: '1770 13th Street, Boulder' }, or null when the lookup fails. */
+export const reverse = o => getJSON(`/api/reverse?${q(o)}`).then(d => (d.name || d.address ? d : null)).catch(() => null);
 
 export function get(id) {
   return catalog.get(id) || state.saved[id] || state.keep?.[id] || null;
