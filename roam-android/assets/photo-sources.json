@@ -1,0 +1,83 @@
+{
+  "chautauqua": {
+    "image": "place-chautauqua",
+    "credit": "Colorado Chautauqua / meadow-trail-benko",
+    "sourceURL": "https://www.chautauqua.com/",
+    "originalURL": "https://www.chautauqua.com/wp-content/uploads/2021/07/meadow-trail-benko-1024x683-1.jpg",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright remains with the source; no open license asserted. Permission or licensed provider required before public commercial release."
+  },
+  "boxcar": {
+    "image": "place-boxcar",
+    "credit": "Boxcar Coffee Roasters \u00b7 Pearl Caf\u00e9",
+    "sourceURL": "https://www.boxcarcoffee.com/pearl-cafe",
+    "originalURL": "https://images.squarespace-cdn.com/content/v1/5f283d04b2a72e02e74ad9e8/634964db-6f2c-4454-ae9f-351a9487653b/IMG_5998.jpg",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright remains with the source; no open license asserted. Permission or licensed provider required before public commercial release."
+  },
+  "tea": {
+    "image": "place-tea",
+    "credit": "Boulder Dushanbe Teahouse",
+    "sourceURL": "https://www.boulderteahouse.com/",
+    "originalURL": "https://images.squarespace-cdn.com/content/v1/5bd35d440b77bd6582890f4b/47e8a1d6-7488-4f25-b28a-55dfc4dfbb6d/Teahouse_Front_Side.png",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright remains with the source; no open license asserted. Permission or licensed provider required before public commercial release."
+  },
+  "trident": {
+    "image": "place-trident",
+    "credit": "Trident Booksellers & Caf\u00e9",
+    "sourceURL": "https://www.tridentcafe.com/",
+    "originalURL": "https://images.squarespace-cdn.com/content/v1/5aec6f1a7c9327e2f144e1c0/1666805702199-0Z5NJO839EGXAQTPWBE2/Website%2Bcover.jpg",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright remains with the source; no open license asserted. Permission or licensed provider required before public commercial release."
+  },
+  "avanti": {
+    "image": "place-avanti",
+    "credit": "Avanti Boulder",
+    "sourceURL": "https://boulder.avantifandb.com/",
+    "originalURL": "https://images.getbento.com/accounts/0e56f148998030ae99f3f8b1f5e93fc8/media/images/52135013_AvantiBoulder_Aerials_2021_72DPI_1.jpg",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright remains with the source; no open license asserted. Permission or licensed provider required before public commercial release."
+  },
+  "redrocks": {
+    "image": "place-redrocks",
+    "credit": "Red Rocks / Alive Coverage",
+    "sourceURL": "https://www.redrocksonline.com/",
+    "originalURL": "https://assets.redrocksonline.com/wp-content/uploads/2024/05/06100549/TurnpikeTroubadours_RRX2022_0515_200959-5502_ALIVECOVERAGE-1920x1280.jpg",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright remains with the source; no open license asserted. Permission or licensed provider required before public commercial release."
+  },
+  "goldenmill": {
+    "image": "place-goldenmill",
+    "credit": "The Golden Mill",
+    "sourceURL": "https://www.thegoldenmill.com/",
+    "originalURL": "https://static.wixstatic.com/media/215ce8_c0dc9b63a7274d7399bdb0e06c62b9c6~mv2.jpg/v1/fill/w_2500,h_1404,al_c/215ce8_c0dc9b63a7274d7399bdb0e06c62b9c6~mv2.jpg",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright remains with the source; no open license asserted. Permission or licensed provider required before public commercial release."
+  },
+  "botanic": {
+    "image": "place-botanic",
+    "credit": "Denver Botanic Gardens \u00b7 York Street",
+    "sourceURL": "https://www.botanicgardens.org/",
+    "originalURL": "https://www.botanicgardens.org/sites/default/files/styles/small_hq/public/image/2020-05/York%20Street%20Science%20Pyramid.jpg?itok=8iocxpUk",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright remains with the source; no open license asserted. Permission or licensed provider required before public commercial release."
+  },
+  "lostgulch": {
+    "image": "place-lostgulch",
+    "credit": "Jennie Crate Photography \u00b7 Lost Gulch Overlook",
+    "sourceURL": "https://www.jenniecrate.com/lost-gulch-overlook/",
+    "originalURL": "https://www.jenniecrate.com/wp-content/uploads/2019/06/Flagstaff-Mountain-Engagement_0011.webp",
+    "checkedAt": "2026-10-03",
+    "type": "venue-photograph",
+    "rights": "Copyright Jennie Crate Photography; permission required before public commercial release."
+  }
+}

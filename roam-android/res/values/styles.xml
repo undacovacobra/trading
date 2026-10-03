@@ -1,0 +1,11 @@
+<resources>
+    <style name="RoamTheme" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">#345D4F</item>
+        <item name="android:colorPrimary">#F8F7F3</item>
+        <item name="android:colorPrimaryDark">#F8F7F3</item>
+        <item name="android:statusBarColor">#F8F7F3</item>
+        <item name="android:navigationBarColor">#F8F7F3</item>
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
