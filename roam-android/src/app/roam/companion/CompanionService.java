@@ -41,10 +41,6 @@ public final class CompanionService extends Service implements LocationListener 
     private final Handler main = new Handler(Looper.getMainLooper());
     private LocationManager manager;
     private LocationPlan.Mode mode;
-    private boolean discoveryRunning;
-    private double discoveryLat = 999;
-    private double discoveryLng = 999;
-    private long discoveryAt;
 
     @Override
     public void onCreate() {
@@ -131,35 +127,8 @@ public final class CompanionService extends Service implements LocationListener 
             apply(LocationPlan.Mode.ACTIVE);
         }
         boolean departed = detector.update(fix.getLatitude(), fix.getLongitude(), fix.getAccuracy(), at);
-        maybeDiscover(fix);
         if (departed) considerDeparture(fix);
         apply(plan.mode(detector, at));
-    }
-
-    /** Keeps the nearby live-place cache fresh: hourly, or after moving 3 km. */
-    private void maybeDiscover(final Location fix) {
-        if (discoveryRunning) return;
-        long now = System.currentTimeMillis();
-        if (now - discoveryAt <= 3_600_000L
-                && DepartureDetector.meters(fix.getLatitude(), fix.getLongitude(), discoveryLat, discoveryLng) <= 3000) {
-            return;
-        }
-        discoveryRunning = true;
-        discoveryLat = fix.getLatitude();
-        discoveryLng = fix.getLongitude();
-        discoveryAt = now;
-        background.execute(new Runnable() {
-            @Override
-            public void run() {
-                DiscoverySource.refreshInBackground(CompanionService.this, fix.getLatitude(), fix.getLongitude());
-                main.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        discoveryRunning = false;
-                    }
-                });
-            }
-        });
     }
 
     private void considerDeparture(final Location fix) {
@@ -176,18 +145,18 @@ public final class CompanionService extends Service implements LocationListener 
 
     private void suggestAfterDeparture(double lat, double lng, double leftLat, double leftLng) {
         JSONObject snapshot = NativeStore.snapshot(this);
-        if (!snapshot.optBoolean("notifications")) return;
+        JSONObject departure = snapshot.optJSONObject("departure");
+        if (departure == null || !departure.optBoolean("enabled")) return;
         long now = System.currentTimeMillis();
         ZonedDateTime local = ZonedDateTime.now();
         JSONObject quiet = snapshot.optJSONObject("quiet");
         boolean isQuiet = quiet != null && NudgePolicy.quiet(quiet.optString("start"), quiet.optString("end"), local.toLocalTime());
-        boolean busy = DeviceCalendar.busyNow(this, now) || Suggestions.busyIn(snapshot.optJSONArray("busy"), now);
-        if (!NudgePolicy.allowed(snapshot.optInt("max", 3), NativeStore.sentToday(this), isQuiet, busy,
+        boolean busy = Suggestions.busyIn(snapshot.optJSONArray("busy"), now);
+        if (!NudgePolicy.allowed(snapshot.optInt("max", 1), NativeStore.sentToday(this), isQuiet, busy,
                 NativeStore.prefs(this).getLong("lastNudge", 0), now)) {
             return;
         }
-        JSONArray live = LiveCandidates.nearby(NativeStore.livePlaces(this), snapshot, lat, lng, now);
-        JSONArray candidates = Suggestions.departureCandidates(snapshot, live);
+        JSONArray candidates = Suggestions.departureCandidates(snapshot);
         JSONObject best = Suggestions.bestAfterDeparture(snapshot, candidates, NativeStore.replies(this),
                 lat, lng, leftLat, leftLng, now, local);
         if (best == null) return;
@@ -196,7 +165,7 @@ public final class CompanionService extends Service implements LocationListener 
                 + Units.distance(meters, Locale.getDefault()) + " away. Check hours and the route before going.";
         String id = best.optString("id");
         if (NativeNotifications.suggestion(this, id, best.optString("name"), body)) {
-            NativeStore.recordDelivery(this, now, null);
+            NativeStore.recordDelivery(this, now);
             NativeStore.reply(this, id, "suggestion", "");
         }
     }

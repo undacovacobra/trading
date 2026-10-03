@@ -1,55 +1,48 @@
-# Roam for Android (0.8.0)
+# Roam for Android (0.9.0)
 
-Roam is a travel companion: a native Android shell (location, calendar, notifications, background
-work) around the Roam web app in `assets/`. This is a source rebuild of the 0.7.0 test APK with the
-fixes below. The web app is the same one, with small changes.
+A travel companion that shows one great thing to do right now, and learns what you like from what
+you save, skip and go to. A small native Android shell (location, notifications, caching, API calls)
+hosts a lean web interface in `assets/`.
 
-## What changed since 0.7.0
+## Screens
 
-**Installing and updates**
-- Release build signed with your own key instead of the shared Android debug key. Keep
-  `roam-release.jks` and its password safe: every future update must be signed with it.
-- No longer `debuggable`: faster, and other apps or a USB cable can't inspect its data.
+- **First minute**: tap a few photo tiles ("Slow coffee", "Big views", …) or skip.
+- **Today**: a headline for the moment (time of day, weather, sunset), one main pick with a photo and
+  a reason, quick mood filters, upcoming events, and a short "Worth a detour" list that grows on demand.
+- **Place / event**: photos, "Why it's for you" (built only from what Roam knows), hours, rating,
+  "Pair it with", one-tap feedback (Too far, Not my vibe, Been there, Wrong time), Directions, I went.
+- **Explore**: search ("tacos", "climbing gym") or browse by kind; sort by best, nearest, open now.
+- **Saved**: Want to go / Been.
+- **You**: what Roam has learned (and "Bring back" for things it's showing less), weekly picks
+  day and time, "Heading out?" ideas, quiet hours, location, API keys and usage, backup and restore.
 
-**Battery**
-- The departure companion used GPS and network location every 15 s all day. It now switches
-  between ACTIVE (precise fixes every 15 s, while moving or confirming a departure) and RESTING
-  (low-power fixes at most every 2 min, only after moving 50 m, while you stay put). A low-power
-  fix well away from where you settled wakes precise tracking for 3 minutes. See `LocationPlan`.
-- Uses Android's fused location provider on Android 12+.
-- The departure detector no longer throws away the place you're at after 15 minutes without a fix
-  (which RESTING mode makes normal); only gaps over 2 hours start fresh.
+## How it learns
 
-**Works outside Colorado**
-- The phone's time zone replaces hard-coded `America/Denver` for "today", seasons, quiet-hour
-  day boundaries, calendar defaults and trip/plan timing. Red Rocks event times stay in Mountain Time.
-- Distances in notifications use km or miles depending on your region.
+Each place carries a few tags (coffee, trails, views, culture, …). Roam keeps a weight per tag:
+saving +2, going +3, opening a place +0.3, "Not my vibe" −2.5, "Too far" tightens the distance it
+suggests. Weights halve every 45 days so it keeps up with you. A place's score combines your tag
+weights, Google rating, distance, whether it's open, and the moment (morning coffee, sunset views,
+indoor ideas when it rains), and the feed avoids showing five of the same kind in a row.
 
-**Your data**
-- Backups are on: Android backs up your preferences and saved data with your Google account.
-- New "Your data" section on the My taste page: **Save a backup** writes a JSON file wherever you
-  choose; **Restore from a file** brings it back (with confirmation, and it rolls back if the
-  restore fails partway).
+## Data sources
 
-**Public map services**
-- Removed the fallback to the OpenStreetMap *editing* API, which isn't meant for apps like this.
-  A second public Overpass server is tried instead.
-- Overpass results are cached on the phone for 30 minutes per area. Address search follows
-  Nominatim's usage policy: at most one request per second, and repeated searches are answered
-  from memory.
+| What | Source | Key | Cached on the phone |
+| --- | --- | --- | --- |
+| Places, hours, ratings, photos | Google Places API (New) | Yours, in You › Connections | 24 h per ~4 km area; photos 30 days |
+| Places without a key | OpenStreetMap (Overpass, Nominatim) | none | 24 h |
+| Events | Ticketmaster Discovery API | Yours | 6 h |
+| Weather, sunset | Open-Meteo | none | 30 min |
 
-**Polish**
-- Adaptive app icon (sharp on every phone, supports themed icons) replaces a single low-res PNG.
-- After a reboot, the "resume" notification uses Roam's icon and clears once the companion runs.
-- Turning on the companion asks for notification permission first on Android 13+.
-- Edge-to-edge layout handled for Android 15, including the keyboard.
-- Rotating the phone no longer reloads the app; Back on the home screen leaves Roam running.
-- The app restarts cleanly if Android kills the WebView renderer, instead of crashing.
-- Removed 4 duplicate photos.
+Google calls are capped at 900 place lookups and 900 photos a month (shown in You › Connections),
+so usage stays inside Google's free monthly allowance; after that Roam serves what it already has
+or falls back to OpenStreetMap until the 1st.
 
-**Code**
-- The native code is rewritten as readable source. Selection logic (`DepartureDetector`,
-  `LocationPlan`, `Suggestions`, `Planner`, policies) is plain Java with 30 unit tests.
+## Notifications
+
+- **Weekly picks** (on by default, Fridays 5 pm, changeable): three varied ideas from the ranking
+  the app made the last time it was open, with a photo. Inexact alarm; no tracking needed.
+- **"Heading out?"** (off by default): the departure-aware location service from 0.8, battery
+  friendly, at most one suggestion a day, respecting quiet hours.
 
 ## Building
 
@@ -58,17 +51,6 @@ sudo apt install aapt apksigner zipalign dalvik-exchange   # plus a JDK 17+
 ROAM_KEYSTORE=/path/to/roam-release.jks ROAM_KEYSTORE_PASS=... ./build.sh
 ```
 
-`build.sh` downloads two Android framework jars and the test libraries from Maven Central on the
-first run, runs the unit tests, then compiles, packages, aligns and signs `build/roam-<version>.apk`.
-When you change the version, update both `versionName`/`versionCode` in `AndroidManifest.xml` and
-`BuildInfo.VERSION`.
-
-## Layout
-
-| Path | What it is |
-| --- | --- |
-| `src/app/roam/companion/` | Native code. `MainActivity` hosts the WebView, `WebBridge` is `window.RoamAndroid`, `AssetServer` serves `assets/` and the `/api/*` endpoints. |
-| `CompanionService`, `LocationPlan`, `DepartureDetector` | Departure-aware companion and its battery plan. |
-| `PlanningJob`, `Planner` | Background "near home" / "before your trip" ideas. |
-| `assets/` | The web app (unchanged structure; `backup.js` is new). |
-| `test/` | JVM unit tests for the pure logic. |
+`build.sh` fetches two Android framework jars and the test libraries from Maven Central on first
+run, runs the unit tests (logic and the API response parsers), then compiles, packages, aligns and
+signs `build/roam-<version>.apk`. Keep the keystore: updates must be signed with the same key.

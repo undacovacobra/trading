@@ -26,7 +26,7 @@ public class SuggestionsTest {
 
     private static JSONObject pick(JSONArray places, JSONArray replies, ZonedDateTime at) throws Exception {
         JSONObject snapshot = new JSONObject().put("places", places);
-        return Suggestions.bestAfterDeparture(snapshot, Suggestions.departureCandidates(snapshot, new JSONArray()),
+        return Suggestions.bestAfterDeparture(snapshot, Suggestions.departureCandidates(snapshot),
                 replies, LAT, LNG, DepartureDetectorTest.north(-2000), LNG, NOW, at);
     }
 
@@ -75,16 +75,5 @@ public class SuggestionsTest {
     public void countsTodaysDeliveriesInTheGivenZone() {
         JSONArray d = new JSONArray().put(EVENING.toInstant().toEpochMilli()).put(EVENING.minusDays(1).toInstant().toEpochMilli());
         assertEquals(1, Suggestions.sentOn(d, EVENING.toLocalDate(), ZoneId.of("UTC")));
-    }
-
-    @Test
-    public void liveCandidatesNeedAMatchingInterest() throws Exception {
-        JSONObject snapshot = new JSONObject().put("interests", new JSONArray().put("Coffee"));
-        JSONObject cafe = place("osm-node-1", 800, 0).put("tags", new JSONArray().put("Coffee")).put("checkedAt", NOW);
-        JSONObject bar = place("osm-node-2", 800, 0).put("tags", new JSONArray().put("Nightlife")).put("checkedAt", NOW);
-        JSONArray found = LiveCandidates.nearby(new JSONArray().put(cafe).put(bar), snapshot, LAT, LNG, NOW);
-        assertEquals(1, found.length());
-        assertEquals("osm-node-1", found.getJSONObject(0).getString("id"));
-        assertTrue(found.getJSONObject(0).getBoolean("live"));
     }
 }

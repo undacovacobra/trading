@@ -21,14 +21,14 @@ final class AssetServer {
     static final String HOST = "appassets.androidplatform.net";
     static final String ORIGIN = "https://" + HOST;
     private static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-            + "font-src 'self'; img-src 'self' https:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'";
+            + "font-src 'self'; img-src 'self' https: data:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'";
 
     private final Context context;
-    private final PhotoSource photos;
+    private final PhotoCache photos;
 
     AssetServer(Context context) {
         this.context = context.getApplicationContext();
-        this.photos = new PhotoSource(context);
+        this.photos = new PhotoCache(context);
     }
 
     WebResourceResponse handle(Uri url) {
@@ -48,32 +48,55 @@ final class AssetServer {
     }
 
     private WebResourceResponse api(String path, Uri url) {
+        if (path.equals("/api/photo")) return photo(url);
         JSONObject result;
-        if (path.equals("/api/event-source")) {
-            result = EventSource.fetch();
-        } else if (path.equals("/api/commons-photo")) {
-            result = CommonsSource.fetch(url.getQueryParameter("file"));
-        } else if (path.equals("/api/home-search")) {
-            result = HomeSearch.fetch(url.getQueryParameter("q"));
-        } else if (path.equals("/api/photo-source")) {
-            result = photos.fetch(url.getQueryParameter("source"));
-        } else if (path.equals("/api/discovery")) {
-            try {
-                String radius = url.getQueryParameter("radius");
-                result = DiscoverySource.fetch(context,
-                        Double.parseDouble(url.getQueryParameter("lat")),
-                        Double.parseDouble(url.getQueryParameter("lng")),
-                        radius == null ? 4000 : Integer.parseInt(radius));
-            } catch (RuntimeException e) {
-                result = error("Invalid location");
+        try {
+            if (path.equals("/api/places")) {
+                result = Places.nearby(context, num(url, "lat"), num(url, "lng"), "1".equals(url.getQueryParameter("force")));
+            } else if (path.equals("/api/search")) {
+                result = Places.search(context, url.getQueryParameter("q"), num(url, "lat"), num(url, "lng"));
+            } else if (path.equals("/api/events")) {
+                result = Events.fetch(context, num(url, "lat"), num(url, "lng"));
+            } else if (path.equals("/api/weather")) {
+                result = Weather.fetch(context, num(url, "lat"), num(url, "lng"));
+            } else if (path.equals("/api/geocode")) {
+                result = HomeSearch.fetch(url.getQueryParameter("q"));
+            } else if (path.equals("/api/reverse")) {
+                result = HomeSearch.reverse(num(url, "lat"), num(url, "lng"));
+            } else {
+                return notFound();
             }
-        } else {
-            return notFound();
+        } catch (RuntimeException e) {
+            result = error("Invalid request");
         }
         boolean ok = !result.has("error");
         return new WebResourceResponse("application/json", "UTF-8", ok ? 200 : 502, ok ? "OK" : "Unavailable",
                 Collections.singletonMap("Cache-Control", "no-store"),
                 new ByteArrayInputStream(result.toString().getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** Photo bytes from the on-phone cache (downloading once if needed); the WebView caches them too. */
+    private WebResourceResponse photo(Uri url) {
+        String ref = url.getQueryParameter("ref");
+        int w;
+        try {
+            w = Integer.parseInt(url.getQueryParameter("w"));
+        } catch (RuntimeException e) {
+            w = 400;
+        }
+        try {
+            if (ref == null || ref.length() > 600) throw new IOException("Bad ref");
+            byte[] bytes = photos.get(ref, w);
+            Map<String, String> headers = new HashMap<String, String>();
+            headers.put("Cache-Control", "private, max-age=604800");
+            return new WebResourceResponse(PhotoCache.mime(bytes), null, 200, "OK", headers, new ByteArrayInputStream(bytes));
+        } catch (IOException e) {
+            return new WebResourceResponse("text/plain", "UTF-8", 404, "Not Found", null, new ByteArrayInputStream(new byte[0]));
+        }
+    }
+
+    private static double num(Uri url, String name) {
+        return Double.parseDouble(url.getQueryParameter(name));
     }
 
     private static JSONObject error(String message) {

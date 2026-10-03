@@ -4,12 +4,12 @@ import java.util.Arrays;
 import java.util.List;
 
 import android.Manifest;
-import android.app.job.JobScheduler;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.webkit.JavascriptInterface;
@@ -19,7 +19,7 @@ import org.json.JSONObject;
 
 /** window.RoamAndroid. Every method validates its input; anything touching the UI hops to the main thread. */
 final class WebBridge {
-    private static final List<String> REQUESTS = Arrays.asList("calendar", "tracking", "home", "current", "notifications");
+    private static final List<String> REQUESTS = Arrays.asList("tracking", "current", "notifications");
     private final MainActivity activity;
 
     WebBridge(MainActivity activity) {
@@ -33,28 +33,26 @@ final class WebBridge {
         try {
             LocationManager lm = (LocationManager) c.getSystemService(Context.LOCATION_SERVICE);
             PowerManager pm = (PowerManager) c.getSystemService(Context.POWER_SERVICE);
-            JobScheduler js = (JobScheduler) c.getSystemService(Context.JOB_SCHEDULER_SERVICE);
             s.put("version", BuildInfo.VERSION);
             s.put("tracking", CompanionService.active);
             s.put("trackingWanted", NativeStore.trackingWanted(c));
             s.put("precise", c.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED);
             s.put("approximate", c.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED);
-            s.put("locationEnabled", android.os.Build.VERSION.SDK_INT >= 28 ? lm.isLocationEnabled()
+            s.put("locationEnabled", Build.VERSION.SDK_INT >= 28 ? lm.isLocationEnabled()
                     : lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
             s.put("batteryUnrestricted", pm.isIgnoringBatteryOptimizations(c.getPackageName()));
-            s.put("planningScheduled", js.getPendingJob(PlanningJob.ID) != null);
-            s.put("livePlaces", NativeStore.livePlaces(c));
             s.put("notifications", NativeNotifications.enabled(c));
-            s.put("calendar", DeviceCalendar.connected(c));
             s.put("replies", NativeStore.replies(c));
-            s.put("planningLedger", NativeStore.ledger(c));
             s.put("location", NativeStore.location(c));
+            s.put("keys", Keys.status(c));
+            s.put("weeklyLast", Json.object(NativeStore.prefs(c).getString("weeklyLast", "{}")));
         } catch (JSONException ignored) {
             // return what we have
         }
         return s.toString();
     }
 
+    /** The web app's latest rankings and settings, for notifications while Roam is closed. */
     @JavascriptInterface
     public void snapshot(String json) {
         if (json == null || json.length() > 2_000_000) return;
@@ -64,7 +62,12 @@ final class WebBridge {
             return;
         }
         NativeStore.prefs(activity).edit().putString("snapshot", json).apply();
-        PlanningJob.schedule(activity);
+        WeeklyReceiver.schedule(activity);
+    }
+
+    @JavascriptInterface
+    public void setKey(String which, String value) {
+        Keys.set(activity, which, value);
     }
 
     @JavascriptInterface
@@ -76,13 +79,6 @@ final class WebBridge {
                 activity.enqueueTask(what);
             }
         });
-    }
-
-    @JavascriptInterface
-    public boolean notify(String placeId, String title, String body) {
-        if (placeId == null || title == null || body == null) return false;
-        if (placeId.length() > 100 || title.length() > 250 || body.length() > 2000) return false;
-        return NativeNotifications.suggestion(activity, placeId, title, body);
     }
 
     @JavascriptInterface
@@ -103,32 +99,35 @@ final class WebBridge {
     }
 
     @JavascriptInterface
-    public void refreshCalendar() {
-        activity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                activity.refreshCalendar();
-            }
-        });
-    }
-
-    @JavascriptInterface
-    public void disconnectCalendar() {
-        NativeStore.prefs(activity).edit().putBoolean("calendar", false).apply();
-        activity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                activity.js("window.roamNativeCalendar&&window.roamNativeCalendar({status:'disconnected'})");
-            }
-        });
-    }
-
-    @JavascriptInterface
     public void openURL(final String url) {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 activity.openExternal(url);
+            }
+        });
+    }
+
+    /** Turn-by-turn directions in Google Maps (or whatever maps app you use). */
+    @JavascriptInterface
+    public void directions(final double lat, final double lng) {
+        if (!Places.valid(lat, lng)) return;
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                activity.openExternal("https://www.google.com/maps/dir/?api=1&destination=" + lat + "%2C" + lng);
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public void share(final String text) {
+        if (text == null || text.length() > 2000) return;
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text);
+                activity.startActivity(Intent.createChooser(send, null));
             }
         });
     }
@@ -143,8 +142,6 @@ final class WebBridge {
                     i = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
                 } else if ("battery".equals(which)) {
                     i = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-                } else if ("calendar".equals(which)) {
-                    i = new Intent(Settings.ACTION_SYNC_SETTINGS);
                 } else if ("notifications".equals(which)) {
                     i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE, activity.getPackageName());

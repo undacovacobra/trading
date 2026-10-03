@@ -7,34 +7,63 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.Map;
 
 /** One place for timeouts, size limits and the identifying User-Agent public services ask for. */
 final class Http {
     static final String USER_AGENT =
             "Roam/" + BuildInfo.VERSION + " (Android travel companion; +https://roam-your-next-adventure.undacovacobra.chatgpt.site)";
 
+    /** A response whose status the caller wants to look at (e.g. Google's 400 for a bad type). */
+    static final class Response {
+        final int code;
+        final byte[] body;
+        final String type;
+
+        Response(int code, byte[] body, String type) {
+            this.code = code;
+            this.body = body;
+            this.type = type;
+        }
+
+        String text() {
+            return new String(body, StandardCharsets.UTF_8);
+        }
+
+        boolean ok() {
+            return code == 200;
+        }
+    }
+
     private Http() {}
 
     static String get(String url, String accept, int maxBytes) throws IOException {
-        return request(url, accept, null, maxBytes);
+        Response r = exchange("GET", url, Collections.singletonMap("Accept", accept), null, null, maxBytes);
+        if (!r.ok()) throw new IOException("HTTP " + r.code);
+        return r.text();
     }
 
     static String post(String url, String accept, String body, int maxBytes) throws IOException {
-        return request(url, accept, body, maxBytes);
+        Response r = exchange("POST", url, Collections.singletonMap("Accept", accept), body,
+                "application/x-www-form-urlencoded; charset=utf-8", maxBytes);
+        if (!r.ok()) throw new IOException("HTTP " + r.code);
+        return r.text();
     }
 
-    private static String request(String url, String accept, String body, int maxBytes) throws IOException {
+    static Response exchange(String method, String url, Map<String, String> headers, String body,
+                             String contentType, int maxBytes) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         try {
             c.setInstanceFollowRedirects(false);
             c.setConnectTimeout(12_000);
             c.setReadTimeout(20_000);
+            c.setRequestMethod(method);
             c.setRequestProperty("User-Agent", USER_AGENT);
-            c.setRequestProperty("Accept", accept);
+            for (Map.Entry<String, String> h : headers.entrySet()) c.setRequestProperty(h.getKey(), h.getValue());
             if (body != null) {
-                c.setRequestMethod("POST");
                 c.setDoOutput(true);
-                c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8");
+                c.setRequestProperty("Content-Type", contentType);
                 OutputStream out = c.getOutputStream();
                 try {
                     out.write(body.getBytes(StandardCharsets.UTF_8));
@@ -43,14 +72,17 @@ final class Http {
                 }
             }
             int code = c.getResponseCode();
-            if (code != 200) throw new IOException("HTTP " + code);
             if (c.getContentLengthLong() > maxBytes) throw new IOException("Too large");
-            InputStream in = c.getInputStream();
-            try {
-                return new String(read(in, maxBytes), StandardCharsets.UTF_8);
-            } finally {
-                in.close();
+            InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+            byte[] data = new byte[0];
+            if (in != null) {
+                try {
+                    data = read(in, maxBytes);
+                } finally {
+                    in.close();
+                }
             }
+            return new Response(code, data, c.getContentType());
         } finally {
             c.disconnect();
         }

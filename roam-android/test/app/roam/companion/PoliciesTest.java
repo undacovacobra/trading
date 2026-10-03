@@ -10,8 +10,6 @@ import java.util.Locale;
 import org.junit.Test;
 
 public class PoliciesTest {
-    static final long DAY = 86_400_000L;
-
     @Test
     public void quietHoursWrapPastMidnight() {
         assertTrue(NudgePolicy.quiet("22:00", "08:00", LocalTime.of(23, 30)));
@@ -31,26 +29,6 @@ public class PoliciesTest {
         assertFalse("busy", NudgePolicy.allowed(3, 0, false, true, 0, now));
         assertFalse("15 minute spacing", NudgePolicy.allowed(3, 0, false, false, now - 10 * 60_000L, now));
         assertTrue(NudgePolicy.allowed(3, 0, false, false, now - 16 * 60_000L, now));
-    }
-
-    @Test
-    public void planningCadence() {
-        long created = 0;
-        long every = 3 * DAY;
-        assertFalse("waits a day after a plan is created", PlanningPolicy.due(false, created, 0, Long.MAX_VALUE, every, 0, 0, false, DAY - 1));
-        assertTrue(PlanningPolicy.due(false, created, 0, Long.MAX_VALUE, every, 0, 0, false, DAY));
-        assertFalse(PlanningPolicy.due(false, created, 0, Long.MAX_VALUE, every, 0, DAY, false, 3 * DAY));
-        assertTrue(PlanningPolicy.due(false, created, 0, Long.MAX_VALUE, every, 0, DAY, false, 4 * DAY));
-        assertFalse("never when off", PlanningPolicy.due(false, created, 0, Long.MAX_VALUE, 0, 0, 0, false, 9 * DAY));
-    }
-
-    @Test
-    public void advanceTripGetsOneFinalIdeaTheDayBefore() {
-        long start = 10 * DAY;
-        long every = 7 * DAY;
-        assertTrue(PlanningPolicy.due(true, 0, start, start + 3 * DAY, every, 0, 5 * DAY, false, start - DAY / 2));
-        assertFalse("only once", PlanningPolicy.due(true, 0, start, start + 3 * DAY, every, 0, start - DAY / 2, true, start - DAY / 4));
-        assertFalse("stops at departure", PlanningPolicy.due(true, 0, start, start + 3 * DAY, every, 0, 0, false, start));
     }
 
     @Test

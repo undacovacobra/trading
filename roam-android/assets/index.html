@@ -1,44 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f8f7f3"><meta name="description" content="A travel companion that learns your tastes, plans your trips, and suggests places and events along the way.">
-  <title>Roam — Your travel companion</title>
-  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="fonts.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F5F2EC">
+<title>Roam</title>
+<link rel="stylesheet" href="app.css">
+<script type="module" src="js/main.js"></script>
 </head>
 <body>
-<aside class="sidebar">
-  <a class="brand" href="#discover" aria-label="Roam home"><span class="brand-icon" data-icon="compass"></span>roam<span class="brand-dot">.</span></a>
-  <div class="side-label">YOUR TRAVEL COMPANION</div>
-  <nav aria-label="Main navigation">
-    <button class="nav-item active" data-view="discover"><span data-icon="compass"></span>My companion<span class="nav-dot"></span></button>
-    <button class="nav-item" data-view="route"><span data-icon="route"></span>On my way</button>
-    <button class="nav-item" data-view="saved"><span data-icon="bookmark"></span>Saved places<span id="saved-count" class="nav-count">0</span></button>
-    <button class="nav-item" data-view="profile"><span data-icon="sparkles"></span>My taste</button>
-  </nav>
-  <div class="side-bottom"><div class="nudge-box"><div class="nudge-heading"><span class="nudge-symbol" data-icon="bell"></span><strong>I’m here for the journey.</strong></div><p>Thoughtful suggestions.<br>Room to tell me how you feel.</p><button id="nudge-toggle" class="nudge-button">Enable nearby nudges<span data-icon="arrow-right"></span></button><span class="nudge-fine">Only while Roam is open</span></div><button class="user-profile" data-view="profile"><span class="avatar">Y</span><span><strong>Your little world</strong><small>Always evolving</small></span><span data-icon="chevron-right"></span></button></div>
-</aside>
-<div class="main-shell">
-  <header class="topbar"><div class="location-wrap"><span class="location-dot"></span><button id="location-button"><span id="location-label">Boulder, Colorado</span><span data-icon="chevron-down"></span></button><span class="location-context">A little more in tune with you.</span></div><div class="top-actions"><label class="search-box"><span data-icon="search"></span><input id="search" type="search" placeholder="Find your kind of place" aria-label="Search places"><kbd>/</kbd></label><button class="icon-button" id="notifications" aria-label="Nearby nudge settings"><span data-icon="bell"></span></button><button class="avatar small-avatar" data-view="profile" aria-label="My taste profile">Y</button></div></header>
-  <main id="main-content">
-    <section class="page-intro"><div><div class="eyebrow">GO WHERE YOUR CURIOSITY TAKES YOU</div><h1 id="page-title">Your next little adventure.</h1><p id="page-subtitle">Good places. Your kind of things. A little closer than you think.</p></div><button class="outline-button" id="personalize"><span data-icon="sliders"></span>Get to know me</button></section>
-    <div id="discovery-content">
-      <section class="mood-section" aria-label="Choose your mood"><span class="mood-prompt">What’s your mood?</span><div id="moods" class="moods"></div></section>
-      <section class="feature-grid">
-        <article class="hero-card"><img src="assets/place-chautauqua.jpg" alt="The meadow and Flatirons at Chautauqua Park"><div class="hero-shade"></div><div class="hero-top"><span class="glass-tag"><span data-icon="sparkles"></span>YOUR KIND OF ESCAPE</span><button class="hero-bookmark" data-save="chautauqua" aria-label="Save Chautauqua Park"><span data-icon="bookmark"></span></button></div><div class="hero-content"><span class="hero-location"><span data-icon="pin"></span>BOULDER’S BACKYARD</span><h2>A little fresh air.<br>A whole new perspective.</h2><p id="hero-description">Wide-open trails and the Flatirons at Chautauqua Park.</p><div class="hero-bottom"><button class="white-button" data-detail="chautauqua">Let’s explore<span data-icon="arrow-up-right"></span></button><span id="hero-distance"><span data-icon="walk"></span>Nearby in Boulder</span></div></div><span class="photo-note">Photo: Colorado Chautauqua</span></article>
-        <article class="detour-card"><div class="detour-label"><span data-icon="route"></span>THE SCENIC WAY HOME</div><div class="route-art" aria-hidden="true"><svg viewBox="0 0 320 110"><path class="art-road" d="M-10 77 C50 65 65 100 111 69 S146 27 190 50 S244 100 330 30"/><path class="art-dash" d="M-10 77 C50 65 65 100 111 69 S146 27 190 50 S244 100 330 30"/><path class="art-detour" d="M111 69 C122 22 170 12 190 50"/><circle cx="111" cy="69" r="6" fill="#4d6659"/><circle cx="190" cy="50" r="6" fill="#4d6659"/><circle cx="150" cy="24" r="13" fill="#c46745"/><path d="M150 19v10m-5-5h10" stroke="white" stroke-width="2"/></svg></div><span class="little-label">THERE’S MORE ALONG THE WAY</span><h2>The best plans?<br>A small detour.</h2><p>Heading somewhere? Find a spot you’ll love, just off your route.</p><button class="dark-button" data-view="route">Find my detour<span data-icon="arrow-right"></span></button><span class="detour-foot"><span data-icon="heart"></span>For the “why not?” in you</span></article>
-      </section>
-    </div>
-    <section id="route-panel" class="route-panel" hidden></section>
-    <section id="profile-panel" hidden></section>
-    <section id="feed-section" class="feed-section"><div class="section-heading"><div><h2 id="feed-title">A few things you might love <span class="heading-spark">✧</span></h2><p id="feed-subtitle">Picked for you, right around here.</p></div><div class="feed-controls"><button id="radius-button" class="radius-button"><span data-icon="pin"></span><span id="radius-label">Within 25 miles</span><span data-icon="chevron-down"></span></button><label class="sort-label"><select id="sort" aria-label="Sort recommendations"><option value="match">Best match</option><option value="distance">Nearest first</option></select><span data-icon="chevron-down"></span></label></div></div><div class="category-tabs" id="categories"></div><div id="feed" class="card-grid"></div></section>
-    <footer><span class="mini-brand">roam.</span><span>With you, along the way.</span><span class="data-note">Colorado places + official event listings · <a data-native-download href="/downloads/roam-android-test.apk" download>Android test build</a></span></footer>
-  </main>
-</div>
-<dialog id="dialog"><button class="dialog-close icon-button" aria-label="Close dialog"><span data-icon="x"></span></button><div id="dialog-content"></div></dialog>
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
-<script src="compat.js"></script><script src="app.js"></script><script src="activities.js"></script><script src="departure.js"></script>
-<script src="photos.js"></script><script src="companion.js"></script><script src="vendor/ical.js"></script><script src="calendar.js"></script>
-<script src="native.js"></script><script src="backup.js"></script><script src="focus.js"></script><script src="planning-core.js"></script><script src="planning.js"></script><script src="scope.js"></script><script src="timezones.js"></script><script src="destinations.js"></script><script src="live-types.js"></script><script src="live-core.js"></script><script src="live.js"></script><script src="live-events.js"></script>
-</body></html>
+<main id="view" aria-live="polite"></main>
+<nav id="tabs" class="tabs" aria-label="Main" hidden>
+  <a href="#/today" data-tab="today"><span data-icon="sun"></span>Today</a>
+  <a href="#/explore" data-tab="explore"><span data-icon="search"></span>Explore</a>
+  <a href="#/saved" data-tab="saved"><span data-icon="bookmark"></span>Saved</a>
+  <a href="#/you" data-tab="you"><span data-icon="user"></span>You</a>
+</nav>
+<div id="toast" class="toast" role="status"></div>
+</body>
+</html>

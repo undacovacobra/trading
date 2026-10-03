@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="app.roam.companion"
-    android:versionCode="9"
-    android:versionName="0.8.0">
+    android:versionCode="10"
+    android:versionName="0.9.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
 
@@ -12,7 +12,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
@@ -48,10 +47,6 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
-        <service
-            android:name=".PlanningJob"
-            android:exported="false"
-            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <receiver android:name=".BootReceiver" android:exported="false">
             <intent-filter>
@@ -61,5 +56,6 @@
         </receiver>
 
         <receiver android:name=".ReplyReceiver" android:exported="false" />
+        <receiver android:name=".WeeklyReceiver" android:exported="false" />
     </application>
 </manifest>

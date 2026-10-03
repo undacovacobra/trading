@@ -55,24 +55,10 @@ final class Suggestions {
         return false;
     }
 
-    /** Places from the snapshot plus nearby live places the web app hasn't seen yet. */
-    static JSONArray departureCandidates(JSONObject snapshot, JSONArray liveNearby) {
-        JSONArray out = new JSONArray();
-        java.util.HashSet<String> ids = new java.util.HashSet<String>();
+    /** Places the web app ranked for you near your usual spots. */
+    static JSONArray departureCandidates(JSONObject snapshot) {
         JSONArray places = snapshot.optJSONArray("places");
-        if (places != null) {
-            for (int i = 0; i < places.length(); i++) {
-                JSONObject p = places.optJSONObject(i);
-                if (p == null || p.optBoolean("live")) continue;
-                out.put(p);
-                ids.add(p.optString("id"));
-            }
-        }
-        for (int i = 0; i < liveNearby.length(); i++) {
-            JSONObject p = liveNearby.optJSONObject(i);
-            if (p != null && ids.add(p.optString("id"))) out.put(p);
-        }
-        return out;
+        return places == null ? new JSONArray() : places;
     }
 
     /**

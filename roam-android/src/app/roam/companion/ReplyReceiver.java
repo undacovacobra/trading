@@ -9,6 +9,7 @@ import android.os.Bundle;
 /** Handles the buttons on suggestion notifications and the Pause button on the tracking one. */
 public final class ReplyReceiver extends BroadcastReceiver {
     static final String STOP = "stop";
+    static final String DISMISS_WEEKLY = "weekly-dismiss";
 
     @Override
     public void onReceive(Context c, Intent intent) {
@@ -16,6 +17,10 @@ public final class ReplyReceiver extends BroadcastReceiver {
         if (STOP.equals(action)) {
             NativeStore.prefs(c).edit().putBoolean("tracking", false).putBoolean("trackingWanted", false).apply();
             c.stopService(new Intent(c, CompanionService.class));
+            return;
+        }
+        if (DISMISS_WEEKLY.equals(action)) {
+            NativeNotifications.manager(c).cancel(WeeklyReceiver.NOTIFICATION_ID);
             return;
         }
         String placeId = intent.getStringExtra("placeId");

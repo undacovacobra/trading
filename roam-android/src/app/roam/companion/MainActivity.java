@@ -12,7 +12,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.database.ContentObserver;
 import android.graphics.Insets;
 import android.location.Location;
 import android.location.LocationListener;
@@ -24,7 +23,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.provider.CalendarContract;
 import android.view.View;
 import android.view.WindowInsets;
 import android.webkit.RenderProcessGoneDetail;
@@ -55,9 +53,8 @@ public final class MainActivity extends Activity {
     private String permissionTask = "";
     private String pendingPlace = "";
     private String pendingShare = "";
+    private String pendingView = "";
     private String pendingSave;
-    private String fixPurpose = "current";
-    private boolean observingCalendar;
     private ValueCallback<Uri[]> fileCallback;
     private LocationListener oneShot;
     private Object backCallback;
@@ -75,13 +72,6 @@ public final class MainActivity extends Activity {
         public void run() {
             refreshUI();
             handler.postDelayed(this, POLL_MS);
-        }
-    };
-
-    private final ContentObserver calendarObserver = new ContentObserver(handler) {
-        @Override
-        public void onChange(boolean selfChange) {
-            refreshCalendar();
         }
     };
 
@@ -140,7 +130,6 @@ public final class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 refreshUI();
                 deliverIntent();
-                refreshCalendar();
             }
 
             @Override
@@ -169,15 +158,11 @@ public final class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33) registerBack();
         readIntent(getIntent());
         web.loadUrl(AssetServer.ORIGIN + "/index.html");
-        watchCalendar();
     }
 
     // ---- Back navigation ---------------------------------------------------------------------
 
-    private static final String BACK_JS = "(()=>{const d=document.querySelector('#dialog');"
-            + "if(d&&d.open){d.close();return true;}"
-            + "if(typeof state!=='undefined'&&state.view!=='discover'){changeView('discover');return true;}"
-            + "return false;})()";
+    private static final String BACK_JS = "(()=>window.roamBack?window.roamBack():false)()";
 
     private void handleBack() {
         if (web == null) {
@@ -229,6 +214,10 @@ public final class MainActivity extends Activity {
             js("window.roamNativeOpen&&window.roamNativeOpen(" + JSONObject.quote(pendingPlace) + ")");
             pendingPlace = null;
         }
+        if (pendingView != null && !pendingView.isEmpty()) {
+            js("window.roamNativeView&&window.roamNativeView(" + JSONObject.quote(pendingView) + ")");
+            pendingView = null;
+        }
         if (pendingShare != null && !pendingShare.isEmpty()) {
             js("window.roamNativeShare&&window.roamNativeShare(" + JSONObject.quote(pendingShare) + ")");
             pendingShare = null;
@@ -237,6 +226,7 @@ public final class MainActivity extends Activity {
 
     private void readIntent(Intent intent) {
         pendingPlace = intent.getStringExtra("placeId");
+        pendingView = intent.getStringExtra("view");
         if (Intent.ACTION_SEND.equals(intent.getAction())) {
             String text = intent.getStringExtra(Intent.EXTRA_TEXT);
             pendingShare = text != null && text.length() <= 4000 ? text : null;
@@ -274,14 +264,7 @@ public final class MainActivity extends Activity {
     }
 
     private void task(String task) {
-        if ("calendar".equals(task)) {
-            if (!granted(Manifest.permission.READ_CALENDAR)) {
-                ask(task, Manifest.permission.READ_CALENDAR);
-                return;
-            }
-            NativeStore.prefs(this).edit().putBoolean("calendar", true).apply();
-            refreshCalendar();
-        } else if ("home".equals(task) || "current".equals(task)) {
+        if ("current".equals(task)) {
             if (!granted(Manifest.permission.ACCESS_COARSE_LOCATION) && !granted(Manifest.permission.ACCESS_FINE_LOCATION)) {
                 ask(task, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION);
                 return;
@@ -360,7 +343,6 @@ public final class MainActivity extends Activity {
 
     private void singleLocation(String purpose) {
         stopFix();
-        fixPurpose = purpose;
         LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
         boolean precise = granted(Manifest.permission.ACCESS_FINE_LOCATION);
         try {
@@ -445,39 +427,7 @@ public final class MainActivity extends Activity {
         } catch (JSONException e) {
             return;
         }
-        js("home".equals(fixPurpose)
-                ? "window.RoamPlanning&&RoamPlanning.homeFix(" + fix + ")"
-                : "window.roamNativeFix&&window.roamNativeFix(" + fix + ")");
-    }
-
-    // ---- Calendar ----------------------------------------------------------------------------
-
-    void refreshCalendar() {
-        if (web == null || !DeviceCalendar.connected(this)) return;
-        watchCalendar();
-        io.execute(new Runnable() {
-            @Override
-            public void run() {
-                long now = System.currentTimeMillis();
-                final JSONObject result = DeviceCalendar.read(MainActivity.this, now - 31 * Suggestions.DAY, now + 181 * Suggestions.DAY);
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        js("window.roamNativeCalendar&&window.roamNativeCalendar(" + result + ")");
-                    }
-                });
-            }
-        });
-    }
-
-    private void watchCalendar() {
-        if (observingCalendar || !DeviceCalendar.permitted(this)) return;
-        try {
-            getContentResolver().registerContentObserver(CalendarContract.Events.CONTENT_URI, true, calendarObserver);
-            observingCalendar = true;
-        } catch (SecurityException ignored) {
-            // permission withdrawn meanwhile
-        }
+        js("window.roamNativeFix&&window.roamNativeFix(" + fix + ")");
     }
 
     // ---- Files -------------------------------------------------------------------------------
@@ -550,7 +500,6 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         handler.post(poll);
-        refreshCalendar();
         if (NativeStore.trackingWanted(this) && !CompanionService.active && granted(Manifest.permission.ACCESS_FINE_LOCATION)) {
             startTracking();
         }
@@ -566,7 +515,6 @@ public final class MainActivity extends Activity {
     protected void onDestroy() {
         handler.removeCallbacks(poll);
         stopFix();
-        if (observingCalendar) getContentResolver().unregisterContentObserver(calendarObserver);
         io.shutdownNow();
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         if (Build.VERSION.SDK_INT >= 33 && backCallback != null) {

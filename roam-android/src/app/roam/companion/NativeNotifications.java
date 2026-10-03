@@ -63,7 +63,7 @@ final class NativeNotifications {
         if (!enabled(c)) return false;
         Notification.Builder b = new Notification.Builder(c, SUGGESTIONS)
                 .setSmallIcon(R.drawable.ic_roam)
-                .setColor(0xFFC46745)
+                .setColor(0xFFB5502C)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(new Notification.BigTextStyle().bigText(body))
@@ -90,7 +90,7 @@ final class NativeNotifications {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(c, TRACKING)
                 .setSmallIcon(R.drawable.ic_roam)
-                .setColor(0xFFC46745)
+                .setColor(0xFFB5502C)
                 .setContentTitle("Your companion is keeping an eye out")
                 .setContentText(resting
                         ? "Resting while you stay put. It wakes up when you head out."
@@ -107,7 +107,7 @@ final class NativeNotifications {
         if (!manager(c).areNotificationsEnabled()) return;
         Notification n = new Notification.Builder(c, SUGGESTIONS)
                 .setSmallIcon(R.drawable.ic_roam)
-                .setColor(0xFFC46745)
+                .setColor(0xFFB5502C)
                 .setContentTitle("Resume your travel companion")
                 .setContentText("Tap to turn departure suggestions back on after your phone restarted.")
                 .setContentIntent(PendingIntent.getActivity(c, RESUME_ID, new Intent(c, MainActivity.class),
