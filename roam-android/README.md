@@ -1,4 +1,4 @@
-# Roam for Android (0.9.1)
+# Roam for Android (0.9.2)
 
 A travel companion that shows one great thing to do right now, and learns what you like from what
 you save, skip and go to. A small native Android shell (location, notifications, caching, API calls)
@@ -33,9 +33,11 @@ indoor ideas when it rains), and the feed avoids showing five of the same kind i
 | Events | Ticketmaster Discovery API | Yours | 6 h |
 | Weather, sunset | Open-Meteo | none | 30 min |
 
-Google calls are capped at 900 place lookups and 900 photos a month (shown in You › Connections),
-so usage stays inside Google's free monthly allowance; after that Roam serves what it already has
-or falls back to OpenStreetMap until the 1st.
+Google calls are capped at 900 place lookups and 900 photos a month, and 40 lookups and 60 photos
+a day (shown in You › Connections). Results are reused for 24 hours anywhere within about 1.5 miles,
+the refresh button only goes back to Google when results are over 6 hours old, and when Google
+refuses the key Roam waits 6 hours (or until you save a key) before asking again. Past a limit it
+serves what it already has, or OpenStreetMap.
 
 ## Notifications
 

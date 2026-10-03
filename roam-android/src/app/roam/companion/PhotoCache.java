@@ -41,7 +41,13 @@ final class PhotoCache {
         String url;
         try {
             if (ref.startsWith("g:")) {
-                url = GooglePlaces.photoUrl(context, ref.substring(2), w);
+                if (!Keys.googleReady(context)) throw new IOException("Google not available");
+                try {
+                    url = GooglePlaces.photoUrl(context, ref.substring(2), w);
+                } catch (GooglePlaces.KeyProblem e) {
+                    Keys.block(context, e.getMessage());
+                    throw e;
+                }
             } else if (ref.startsWith("c:")) {
                 url = CommonsSource.imageUrl(ref.substring(2), w);
             } else {

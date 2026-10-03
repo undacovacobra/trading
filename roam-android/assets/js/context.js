@@ -7,7 +7,7 @@ export function context(weather, date = new Date()) {
   const f = weather?.tempF;
   const wet = ['rain', 'snow', 'storm'].includes(sky);
   const cold = Number.isFinite(f) && f < 40;
-  const hot = Number.isFinite(f) && f > 92;
+  const hot = Number.isFinite(f) && f >= 88;
   const nice = !wet && !cold && !hot && Number.isFinite(f) && f >= 55;
   const sunsetIn = weather?.sunset ? (weather.sunset - date.getTime()) / 60000 : null;
   const sunsetSoon = sunsetIn !== null && sunsetIn > 0 && sunsetIn < 100 && !wet;
@@ -25,12 +25,13 @@ export function context(weather, date = new Date()) {
   if (nice && part !== 'late') add(['outdoors', 'trails', 'views', 'gardens'], 0.8);
   if (part === 'morning') add(['nightlife', 'drinks'], -3);
 
-  return { date, part, sky, tempF: f, wet, cold, nice, sunsetSoon, sunset: weather?.sunset || null, boosts: b, headline: headline(part, { wet, cold, nice, sky, sunsetSoon, sunset: weather?.sunset }) };
+  return { date, part, sky, tempF: f, wet, cold, hot, nice, sunsetSoon, sunset: weather?.sunset || null, boosts: b, headline: headline(part, { wet, cold, hot, nice, sky, sunsetSoon, sunset: weather?.sunset }) };
 }
 
 function headline(part, w) {
   const sunset = w.sunset ? new Date(w.sunset).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
   if (w.cold && part !== 'late') return 'Cold out. Somewhere warm and good, then.';
+  if (w.hot && part !== 'late' && part !== 'evening') return 'Hot out. Somewhere cool, shady or air-conditioned?';
   if (w.wet) return part === 'evening' || part === 'late' ? 'A cozy night in town, then.' : 'Rainy out. Good for books, tea and museums.';
   switch (part) {
     case 'morning': return w.nice ? 'A bright start. Coffee first, then somewhere green?' : 'Ease into the day with something warm.';

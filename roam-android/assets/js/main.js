@@ -19,6 +19,7 @@ const views = { today, explore, saved, you, place, welcome };
 const scrolls = {};
 let current = null;
 let loading = false;
+const shownNotices = new Set();
 
 export const app = {
   origin: () => state.location,
@@ -85,8 +86,11 @@ async function setLocation(loc, { reload = true } = {}) {
       route(true);
     });
   }
+  // Only look for places again after a real move or when results are stale; the phone caches
+  // anyway, but there's no reason to even ask on every location update.
   const moved = !prev || miles(prev, loc) > 1.5;
-  if (reload) refresh(false, moved);
+  const stale = Date.now() - data.placesInfo().at > 30 * 60000;
+  if (reload && (moved || stale)) refresh(false, moved);
 }
 
 window.roamNativeFix = fix => {
@@ -110,7 +114,7 @@ async function refresh(force = false, rerender = true) {
   try {
     await data.loadWeather(origin);
     await Promise.all([
-      data.loadPlaces(origin, force).catch(e => toast(e.message)),
+      data.loadPlaces(origin, force).catch(e => { if (!shownNotices.has(e.message)) { shownNotices.add(e.message); toast(e.message); } }),
       data.loadEvents(origin),
     ]);
   } finally {
@@ -119,7 +123,7 @@ async function refresh(force = false, rerender = true) {
     pushSnapshot();
   }
   const notice = data.placesInfo().notice;
-  if (notice) toast(notice);
+  if (notice && !shownNotices.has(notice)) { shownNotices.add(notice); toast(notice); }
 }
 
 // ---- Phone: replies to notifications and background suggestions ------------------------------
@@ -175,12 +179,12 @@ decay();
 route();
 if (state.onboarded) {
   if (!state.location || state.location.mode !== 'manual') locate();
-  if (state.location && Date.now() - data.placesInfo().at > 30 * 60000) refresh(false, false);
-  else pushSnapshot();
+  else if (Date.now() - data.placesInfo().at > 30 * 60000) refresh(false, false);
+  pushSnapshot();
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !state.onboarded) return;
   if (state.location?.mode !== 'manual') locate();
-  if (Date.now() - data.placesInfo().at > 30 * 60000) refresh(false, false);
+  else if (Date.now() - data.placesInfo().at > 30 * 60000) refresh(false, false);
 });
 hydrateIcons($('#tabs'));

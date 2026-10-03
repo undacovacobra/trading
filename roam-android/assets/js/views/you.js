@@ -63,7 +63,11 @@ export function render(root, section, app) {
       <form class="key" data-key="google">
         <label for="k-google"><strong>Google Places</strong> ${keys.google ? `<span class="ok">${icon('check', 14)}Connected ${esc(keys.googleHint || '')}</span>` : ''}</label>
         <div class="key-row"><input id="k-google" name="v" type="password" autocomplete="off" placeholder="${keys.google ? 'Paste a new key to replace' : 'Paste your API key'}"><button class="pill dark small">Save</button></div>
-        ${keys.google ? usage('Place lookups', keys.searchUsed, keys.searchBudget) + usage('Photos', keys.photoUsed, keys.photoBudget) : ''}
+        ${keys.googleProblem ? `<div class="problem"><strong>Google refused this key</strong><p>${esc(friendly(keys.googleProblem))}</p>
+          <button type="button" class="text-link" data-url="https://console.cloud.google.com/apis/library/places.googleapis.com">Open “Places API (New)” in Google Cloud ›</button>
+          <small>Roam waits 6 hours before trying again, or tries right away when you save a key.</small></div>` : ''}
+        ${keys.google ? usage('Place lookups', keys.searchUsed, keys.searchBudget) + usage('Photos', keys.photoUsed, keys.photoBudget)
+          + `<p class="fine">Today: ${keys.searchToday || 0} of ${keys.searchPerDay || 40} lookups. Roam reuses results for 24 hours within about 1.5 miles.</p>` : ''}
         <button type="button" class="text-link" data-url="https://console.cloud.google.com/google/maps-apis/credentials">How to get one: Google Cloud console, enable “Places API (New)”, create an API key ›</button>
       </form>
       <form class="key" data-key="ticketmaster">
@@ -127,6 +131,15 @@ export function render(root, section, app) {
     app.refresh(true);
   };
   if (section === 'keys') setTimeout(() => $('#keys')?.scrollIntoView({ block: 'start' }), 50);
+}
+
+/** Google's error text is long and technical; say what to do. */
+function friendly(message) {
+  if (/has not been used|is disabled|SERVICE_DISABLED/i.test(message)) return 'The “Places API (New)” isn’t turned on in your Google Cloud project yet. Open it below, press Enable, wait a few minutes, then save your key again.';
+  if (/billing/i.test(message)) return 'Google needs a billing account on the project before it answers, even within the free allowance.';
+  if (/API key not valid|API_KEY_INVALID/i.test(message)) return 'Google says this key isn’t valid. Copy it again from Google Cloud › Credentials.';
+  if (/referer|restrict|not authorized/i.test(message)) return 'This key has restrictions that block Roam. In Google Cloud › Credentials, allow the Places API (New) for this key.';
+  return message.replace(/^Google:\s*/, '').slice(0, 220);
 }
 
 function usage(label, used = 0, budget = 900) {

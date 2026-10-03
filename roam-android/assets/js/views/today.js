@@ -100,8 +100,8 @@ function bind(root, app) {
     const f = e.target.closest('[data-filter]');
     if (f) { filter = f.dataset.filter; shownCount = 6; app.rerender(); return; }
     if (e.target.closest('[data-more]')) { shownCount += 6; app.rerender(); return; }
-    // A forced refresh spends Google calls, so only force when results are over an hour old.
-    if (e.target.closest('[data-refresh]')) { app.refresh(Date.now() - data.placesInfo().at > 3600000); return; }
+    // Refresh re-reads what the phone has; it only goes back to Google when results are old.
+    if (e.target.closest('[data-refresh]')) { app.refresh(true); return; }
     if (e.target.closest('[data-locate]')) { app.locate(); }
   };
 }

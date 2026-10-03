@@ -249,3 +249,6 @@ details.fact ul { margin: 10px 0 0 32px; padding: 0; list-style: none; color: va
 .toast { position: fixed; left: 16px; right: 16px; bottom: calc(var(--tabs) + 14px); margin: 0 auto; max-width: 480px; padding: 14px 18px; border-radius: 16px; background: var(--forest); color: #fff; font-weight: 600; font-size: 14px; opacity: 0; transform: translateY(10px); transition: opacity .2s, transform .2s; pointer-events: none; z-index: 20; }
 .toast.show { opacity: 1; transform: none; }
 main[data-view="place"] ~ .toast { bottom: 96px; }
+.problem { padding: 12px 14px; border-radius: 14px; background: #FBEDE7; color: var(--accent-ink); display: flex; flex-direction: column; gap: 4px; }
+.problem p { margin: 0; color: var(--ink); font-size: 14px; }
+.problem small { color: var(--muted); }

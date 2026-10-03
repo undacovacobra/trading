@@ -115,7 +115,7 @@ final class GooglePlaces {
 
     private static JSONObject check(Http.Response r) throws IOException, JSONException {
         if (r.ok()) return new JSONObject(r.text());
-        if (r.code == 401 || r.code == 403) {
+        if (r.code == 401 || r.code == 403 || (r.code == 400 && r.text().contains("API_KEY_INVALID"))) {
             String message = "Google didn't accept the API key.";
             try {
                 message = "Google: " + new JSONObject(r.text()).getJSONObject("error").getString("message");
